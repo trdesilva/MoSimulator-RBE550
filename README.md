@@ -4,7 +4,7 @@ This repo is a fork of the public MoSim modding repo for a WPI RBE550 semester p
 ## How do I run it?
 Either download a 2025 release build of MoSim and follow the [modpack installation instructions](https://docs.mosimulator.com/modding/lynk-walkthrough/mod-building) from the official docs, or do the following to run under a debugger in the Unity Editor:
 
-1. Open the Reefscape scene under (project root)/Assets/Scenes. You can choose which robots will be spawned using the fields under Reefscape/RobotSpawnController.
+1. Open the Reefscape scene under (project root)/Assets/Scenes. You can choose which robots will be spawned using the fields under Reefscape/GameManagement/RobotSpawnController in the scene hierarchy.
 1. Go to File > Build Settings... in the Unity Editor.
 1. Enable the checkboxes for Copy PDB Files, Development Build, Script Debugging, and Wait For Managed Debugger.
 1. Click Build And Run.

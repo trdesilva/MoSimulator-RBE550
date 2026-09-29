@@ -5,7 +5,7 @@ using UnityEngine;
 
 public class Perception : MonoBehaviour
 {
-    
+    private HashSet<string> RELEVANT_TAGS = new HashSet<string> { "GamePieceWorld" };//{ "ReefFace", "Algae", "Coral", "BlueRobot", "RedRobot", "Cage", "BlueBargeZone", "RedBargeZone", "GamePieceWorld" };
     // Start is called before the first frame update
     void Start()
     {
@@ -19,7 +19,7 @@ public class Perception : MonoBehaviour
         Dictionary<string, int> tagsLogged = new Dictionary<string, int>();
         foreach(GameObject obj in GetAllObjectsOnlyInScene())
         {
-            if (obj.tag == null)
+            if (obj.tag == null || !RELEVANT_TAGS.Contains(obj.tag))
                 continue;
             string tag = obj.tag != null ? obj.tag : "<null tag>";
             if (!tagsLogged.ContainsKey(tag))
