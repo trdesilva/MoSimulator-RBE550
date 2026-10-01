@@ -601,6 +601,30 @@ public class GridPlanner : MonoBehaviour
     }
 
 
+    [ContextMenu("Test Planner")]
+    private void TestPlanner()
+    {
+        if (fieldMap == null)
+            fieldMap = GetComponent<FieldMap2D>();
+
+        Vector2 start = new Vector2(6.5f, 0.0f);
+        Vector2 goal = new Vector2(2.2f, 0.0f);
+
+        List<Vector2> path = Plan(start, goal);
+
+        if (path == null)
+        {
+            Debug.LogError("GridPlanner test failed: no path found.");
+            return;
+        }
+
+        Debug.Log($"GridPlanner found {path.Count} waypoints.");
+
+        foreach (Vector2 point in path)
+            Debug.Log($"Waypoint: {point}");
+    }
+
+
     private void OnDrawGizmosSelected()
     {
         if (

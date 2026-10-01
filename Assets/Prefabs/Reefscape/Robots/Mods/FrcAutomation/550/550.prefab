@@ -44294,6 +44294,8 @@ GameObject:
   - component: {fileID: 1179240396592833658}
   - component: {fileID: -781471833140239558}
   - component: {fileID: -6880834036589320373}
+  - component: {fileID: 2497039299113447515}
+  - component: {fileID: 5172723085954894187}
   m_Layer: 6
   m_Name: 550
   m_TagString: BlueRobot
@@ -44953,6 +44955,370 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6c742d24aefbb144581821902f3e33cf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &2497039299113447515
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4108337974173178762}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4165d13740e75f440b2cc52a730c9332, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  fieldBoundary:
+  - {x: -7.12, y: 4.03}
+  - {x: 7.07, y: 4.03}
+  - {x: 8.76, y: 2.77}
+  - {x: 8.76, y: -2.76}
+  - {x: 7.1, y: -4.03}
+  - {x: -7.13, y: -4.03}
+  - {x: -8.77, y: -2.76}
+  - {x: -8.77, y: 2.77}
+  cagePhysicalSize: 0.2
+  cageSafetyMargin: 0.0125
+  navigationObstacles:
+  - name: Red Reef
+    vertices:
+    - {x: -5.133872, y: -0.476}
+    - {x: -4.298872, y: -0.955}
+    - {x: -3.463872, y: -0.476}
+    - {x: -3.463872, y: 0.476}
+    - {x: -4.298872, y: 0.955}
+    - {x: -5.133872, y: 0.476}
+  - name: Blue Reef
+    vertices:
+    - {x: 3.463872, y: -0.476}
+    - {x: 4.298872, y: -0.955}
+    - {x: 5.133872, y: -0.476}
+    - {x: 5.133872, y: 0.476}
+    - {x: 4.298872, y: 0.955}
+    - {x: 3.463872, y: 0.476}
+  - name: Cage 1
+    vertices:
+    - {x: -0.10350001, y: -3.3585}
+    - {x: 0.1215, y: -3.3585}
+    - {x: 0.1215, y: -3.1335}
+    - {x: -0.10350001, y: -3.1335}
+  - name: Cage 2
+    vertices:
+    - {x: -0.10350001, y: -2.2145}
+    - {x: 0.1215, y: -2.2145}
+    - {x: 0.1215, y: -1.9895}
+    - {x: -0.10350001, y: -1.9895}
+  - name: Cage 3
+    vertices:
+    - {x: -0.10350001, y: -1.1624999}
+    - {x: 0.1215, y: -1.1624999}
+    - {x: 0.1215, y: -0.93749994}
+    - {x: -0.10350001, y: -0.93749994}
+  - name: Cage 4
+    vertices:
+    - {x: -0.10350001, y: 0.9515}
+    - {x: 0.1215, y: 0.9515}
+    - {x: 0.1215, y: 1.1765}
+    - {x: -0.10350001, y: 1.1765}
+  - name: Cage 5
+    vertices:
+    - {x: -0.10350001, y: 2.0105}
+    - {x: 0.1215, y: 2.0105}
+    - {x: 0.1215, y: 2.2354999}
+    - {x: -0.10350001, y: 2.2354999}
+  - name: Cage 6
+    vertices:
+    - {x: -0.10350001, y: 3.1055}
+    - {x: 0.1215, y: 3.1055}
+    - {x: 0.1215, y: 3.3305}
+    - {x: -0.10350001, y: 3.3305}
+  taskLocations:
+  - name: Blue Coral Station +Z
+    type: 1
+    positionXZ: {x: 7.927174, y: 3.376354}
+    headingDegrees: 36
+  - name: Blue Coral Station -Z
+    type: 1
+    positionXZ: {x: 7.927174, y: -3.376354}
+    headingDegrees: 144
+  - name: Red Coral Station +Z
+    type: 1
+    positionXZ: {x: -7.927174, y: 3.376354}
+    headingDegrees: -36
+  - name: Red Coral Station -Z
+    type: 1
+    positionXZ: {x: -7.927174, y: -3.376354}
+    headingDegrees: -144
+  - name: Processor -X -Z
+    type: 2
+    positionXZ: {x: -2.7865, y: -4.037}
+    headingDegrees: 0
+  - name: Processor +X +Z
+    type: 2
+    positionXZ: {x: 2.7865, y: 4.037}
+    headingDegrees: 0
+  - name: Cage 1
+    type: 4
+    positionXZ: {x: 0.009, y: -3.246}
+    headingDegrees: 0
+  - name: Cage 2
+    type: 4
+    positionXZ: {x: 0.009, y: -2.102}
+    headingDegrees: 0
+  - name: Cage 3
+    type: 4
+    positionXZ: {x: 0.009, y: -1.05}
+    headingDegrees: 0
+  - name: Cage 4
+    type: 4
+    positionXZ: {x: 0.009, y: 1.064}
+    headingDegrees: 0
+  - name: Cage 5
+    type: 4
+    positionXZ: {x: 0.009, y: 2.123}
+    headingDegrees: 0
+  - name: Cage 6
+    type: 4
+    positionXZ: {x: 0.009, y: 3.218}
+    headingDegrees: 0
+  taskRegions:
+  - name: Blue Barge Scoring Region
+    type: 3
+    vertices:
+    - {x: -0.5, y: -3.821}
+    - {x: 0.5, y: -3.821}
+    - {x: 0.5, y: -0.153}
+    - {x: -0.5, y: -0.153}
+  - name: Red Barge Scoring Region
+    type: 3
+    vertices:
+    - {x: -0.5, y: 0.166}
+    - {x: 0.5, y: 0.166}
+    - {x: 0.5, y: 3.834}
+    - {x: -0.5, y: 3.834}
+  reefScoringNodes:
+  - name: Blue Reef Face 1 Left
+    alliance: 1
+    faceNumber: 1
+    branchSide: 0
+    positionXZ: {x: 5.8239, y: -0.17}
+    headingDegrees: -90
+  - name: Blue Reef Face 1 Right
+    alliance: 1
+    faceNumber: 1
+    branchSide: 1
+    positionXZ: {x: 5.8239, y: 0.18}
+    headingDegrees: -90
+  - name: Blue Reef Face 2 Left
+    alliance: 1
+    faceNumber: 2
+    branchSide: 0
+    positionXZ: {x: 5.2086, y: 1.2357}
+    headingDegrees: -150
+  - name: Blue Reef Face 2 Right
+    alliance: 1
+    faceNumber: 2
+    branchSide: 1
+    positionXZ: {x: 4.9055, y: 1.4107}
+    headingDegrees: -150
+  - name: Blue Reef Face 3 Left
+    alliance: 1
+    faceNumber: 3
+    branchSide: 0
+    positionXZ: {x: 3.6836, y: 1.4057}
+    headingDegrees: 150
+  - name: Blue Reef Face 3 Right
+    alliance: 1
+    faceNumber: 3
+    branchSide: 1
+    positionXZ: {x: 3.3805, y: 1.2307}
+    headingDegrees: 150
+  - name: Blue Reef Face 4 Left
+    alliance: 1
+    faceNumber: 4
+    branchSide: 0
+    positionXZ: {x: 2.7739, y: 0.17}
+    headingDegrees: 90
+  - name: Blue Reef Face 4 Right
+    alliance: 1
+    faceNumber: 4
+    branchSide: 1
+    positionXZ: {x: 2.7739, y: -0.18}
+    headingDegrees: 90
+  - name: Blue Reef Face 5 Left
+    alliance: 1
+    faceNumber: 5
+    branchSide: 0
+    positionXZ: {x: 3.3891, y: -1.2357}
+    headingDegrees: 30
+  - name: Blue Reef Face 5 Right
+    alliance: 1
+    faceNumber: 5
+    branchSide: 1
+    positionXZ: {x: 3.6923, y: -1.4107}
+    headingDegrees: 30
+  - name: Blue Reef Face 6 Left
+    alliance: 1
+    faceNumber: 6
+    branchSide: 0
+    positionXZ: {x: 4.9141, y: -1.4057}
+    headingDegrees: -30
+  - name: Blue Reef Face 6 Right
+    alliance: 1
+    faceNumber: 6
+    branchSide: 1
+    positionXZ: {x: 5.2173, y: -1.2307}
+    headingDegrees: -30
+  - name: Red Reef Face 1 Left
+    alliance: 0
+    faceNumber: 1
+    branchSide: 0
+    positionXZ: {x: -2.7739, y: -0.17}
+    headingDegrees: -90
+  - name: Red Reef Face 1 Right
+    alliance: 0
+    faceNumber: 1
+    branchSide: 1
+    positionXZ: {x: -2.7739, y: 0.18}
+    headingDegrees: -90
+  - name: Red Reef Face 2 Left
+    alliance: 0
+    faceNumber: 2
+    branchSide: 0
+    positionXZ: {x: -3.3891, y: 1.2357}
+    headingDegrees: -150
+  - name: Red Reef Face 2 Right
+    alliance: 0
+    faceNumber: 2
+    branchSide: 1
+    positionXZ: {x: -3.6923, y: 1.4107}
+    headingDegrees: -150
+  - name: Red Reef Face 3 Left
+    alliance: 0
+    faceNumber: 3
+    branchSide: 0
+    positionXZ: {x: -4.9141, y: 1.4057}
+    headingDegrees: 150
+  - name: Red Reef Face 3 Right
+    alliance: 0
+    faceNumber: 3
+    branchSide: 1
+    positionXZ: {x: -5.2173, y: 1.2307}
+    headingDegrees: 150
+  - name: Red Reef Face 4 Left
+    alliance: 0
+    faceNumber: 4
+    branchSide: 0
+    positionXZ: {x: -5.8239, y: 0.17}
+    headingDegrees: 90
+  - name: Red Reef Face 4 Right
+    alliance: 0
+    faceNumber: 4
+    branchSide: 1
+    positionXZ: {x: -5.8239, y: -0.18}
+    headingDegrees: 90
+  - name: Red Reef Face 5 Left
+    alliance: 0
+    faceNumber: 5
+    branchSide: 0
+    positionXZ: {x: -5.2086, y: -1.2357}
+    headingDegrees: 30
+  - name: Red Reef Face 5 Right
+    alliance: 0
+    faceNumber: 5
+    branchSide: 1
+    positionXZ: {x: -4.9055, y: -1.4107}
+    headingDegrees: 30
+  - name: Red Reef Face 6 Left
+    alliance: 0
+    faceNumber: 6
+    branchSide: 0
+    positionXZ: {x: -3.6836, y: -1.4057}
+    headingDegrees: -30
+  - name: Red Reef Face 6 Right
+    alliance: 0
+    faceNumber: 6
+    branchSide: 1
+    positionXZ: {x: -3.3805, y: -1.2307}
+    headingDegrees: -30
+  reefL0ScoringNodes:
+  - name: Blue Reef Face 1 L0
+    alliance: 1
+    faceNumber: 1
+    positionXZ: {x: 5.8239, y: 0.0050000027}
+    headingDegrees: -90
+  - name: Blue Reef Face 2 L0
+    alliance: 1
+    faceNumber: 2
+    positionXZ: {x: 5.0570498, y: 1.3232}
+    headingDegrees: -150
+  - name: Blue Reef Face 3 L0
+    alliance: 1
+    faceNumber: 3
+    positionXZ: {x: 3.5320501, y: 1.3182}
+    headingDegrees: 150
+  - name: Blue Reef Face 4 L0
+    alliance: 1
+    faceNumber: 4
+    positionXZ: {x: 2.7739, y: -0.0050000027}
+    headingDegrees: 90
+  - name: Blue Reef Face 5 L0
+    alliance: 1
+    faceNumber: 5
+    positionXZ: {x: 3.5407, y: -1.3232}
+    headingDegrees: 30
+  - name: Blue Reef Face 6 L0
+    alliance: 1
+    faceNumber: 6
+    positionXZ: {x: 5.0657, y: -1.3182}
+    headingDegrees: -30
+  - name: Red Reef Face 1 L0
+    alliance: 0
+    faceNumber: 1
+    positionXZ: {x: -2.7739, y: 0.0050000027}
+    headingDegrees: -90
+  - name: Red Reef Face 2 L0
+    alliance: 0
+    faceNumber: 2
+    positionXZ: {x: -3.5407, y: 1.3232}
+    headingDegrees: -150
+  - name: Red Reef Face 3 L0
+    alliance: 0
+    faceNumber: 3
+    positionXZ: {x: -5.0657, y: 1.3182}
+    headingDegrees: 150
+  - name: Red Reef Face 4 L0
+    alliance: 0
+    faceNumber: 4
+    positionXZ: {x: -5.8239, y: -0.0050000027}
+    headingDegrees: 90
+  - name: Red Reef Face 5 L0
+    alliance: 0
+    faceNumber: 5
+    positionXZ: {x: -5.0570498, y: -1.3232}
+    headingDegrees: 30
+  - name: Red Reef Face 6 L0
+    alliance: 0
+    faceNumber: 6
+    positionXZ: {x: -3.5320501, y: -1.3182}
+    headingDegrees: -30
+--- !u!114 &5172723085954894187
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4108337974173178762}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6f3d3177297a9414380550f2176a118d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  fieldMap: {fileID: 0}
+  cellSize: 0.2
+  robotClearance: 0.48
+  dynamicRobotClearance: 0.9
+  maxSnapDistance: 1
+  drawPath: 1
 --- !u!1 &4108606758337334964
 GameObject:
   m_ObjectHideFlags: 0
