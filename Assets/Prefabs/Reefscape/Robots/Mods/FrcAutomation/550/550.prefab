@@ -44296,6 +44296,7 @@ GameObject:
   - component: {fileID: -6880834036589320373}
   - component: {fileID: 2497039299113447515}
   - component: {fileID: 5172723085954894187}
+  - component: {fileID: 6424116968351610257}
   m_Layer: 6
   m_Name: 550
   m_TagString: BlueRobot
@@ -45313,12 +45314,29 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6f3d3177297a9414380550f2176a118d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  fieldMap: {fileID: 0}
+  fieldMap: {fileID: 2497039299113447515}
   cellSize: 0.2
   robotClearance: 0.48
   dynamicRobotClearance: 0.9
   maxSnapDistance: 1
   drawPath: 1
+--- !u!114 &6424116968351610257
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4108337974173178762}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9aae501daba3fef4e8f5c967a3de3736, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  planner: {fileID: 0}
+  driveSpeed: 0.6
+  waypointTolerance: 0.25
+  goalTolerance: 0.12
+  rotationKp: 0.015
 --- !u!1 &4108606758337334964
 GameObject:
   m_ObjectHideFlags: 0
