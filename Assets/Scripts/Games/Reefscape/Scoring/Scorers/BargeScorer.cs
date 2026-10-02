@@ -49,7 +49,9 @@ namespace Games.Reefscape.Scoring.Scorers
             {
                 if (result == null) continue;
                 if (!result.CompareTag("Algae")) continue;
+
                 currentAlgae.Add(result);
+
                 if (!_scoredAlgae.Contains(result))
                 {
                     // New algae entered the zone, mark it as scored
@@ -101,6 +103,12 @@ namespace Games.Reefscape.Scoring.Scorers
             {
                 Debug.LogError("Invalid score data type passed to BargeScorer.");
             }
+        }
+
+        // Read-only accessor for MatchState synchronization.
+        public int GetScoredAlgaeCount()
+        {
+            return _algaeCount;
         }
     }
 }

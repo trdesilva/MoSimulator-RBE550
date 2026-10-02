@@ -194,6 +194,12 @@ namespace Games.Reefscape.Scoring.Scorers
             rb.AddForce(finalDirection * launchForce, ForceMode.Impulse);
         }
 
+        // Read-only accessor for MatchState synchronization.
+        public int GetScoredAlgaeCount()
+        {
+            return _algaeScored;
+        }
+
         public void ResetProcessor(Transform gamePieceParent)
         {
             StopAllCoroutines();
