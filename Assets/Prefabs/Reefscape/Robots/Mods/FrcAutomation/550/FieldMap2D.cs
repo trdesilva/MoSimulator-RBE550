@@ -137,11 +137,11 @@ public class FieldMap2D : MonoBehaviour
 
 
     // ============================================================
-    // REEF L0 SCORING NODE
+    // REEF L1 SCORING NODE
     // ============================================================
 
     [System.Serializable]
-    public class ReefL0ScoringNode
+    public class ReefL1ScoringNode
     {
         public string name;
         public ReefAlliance alliance;
@@ -149,7 +149,7 @@ public class FieldMap2D : MonoBehaviour
         public Vector2 positionXZ;
         public float headingDegrees;
 
-        public ReefL0ScoringNode(
+        public ReefL1ScoringNode(
             string name,
             ReefAlliance alliance,
             int faceNumber,
@@ -207,9 +207,9 @@ public class FieldMap2D : MonoBehaviour
         new List<ReefScoringNode>();
 
 
-    // Face-level L0 Reef scoring poses.
-    public List<ReefL0ScoringNode> reefL0ScoringNodes =
-        new List<ReefL0ScoringNode>();
+    // Face-level L1 Reef scoring poses.
+    public List<ReefL1ScoringNode> reefL1ScoringNodes =
+        new List<ReefL1ScoringNode>();
 
 
     // ============================================================
@@ -409,10 +409,10 @@ public class FieldMap2D : MonoBehaviour
         taskLocations.Clear();
         taskRegions.Clear();
         reefScoringNodes.Clear();
-        reefL0ScoringNodes.Clear();
+        reefL1ScoringNodes.Clear();
 
         AddReefScoringNodes();
-        AddReefL0ScoringNodes();
+        AddReefL1ScoringNodes();
         AddCoralStationTasks();
         AddProcessorTasks();
         AddBargeTaskRegions();
@@ -722,10 +722,10 @@ public class FieldMap2D : MonoBehaviour
 
 
     // ============================================================
-    // REEF L0 SCORING NODES
+    // REEF L1 SCORING NODES
     // ============================================================
 
-    private void AddReefL0ScoringNodes()
+    private void AddReefL1ScoringNodes()
     {
         ReefAlliance[] alliances =
         {
@@ -746,27 +746,27 @@ public class FieldMap2D : MonoBehaviour
                 if (leftNode == null || rightNode == null)
                 {
                     Debug.LogWarning(
-                        $"Could not create L0 node for {alliance} Reef Face {face}: Left or Right node is missing."
+                        $"Could not create L1 node for {alliance} Reef Face {face}: Left or Right node is missing."
                     );
                     continue;
                 }
 
-                Vector2 l0Position =
+                Vector2 l1Position =
                     (leftNode.positionXZ + rightNode.positionXZ) * 0.5f;
 
-                float l0Heading =
+                float l1Heading =
                     leftNode.headingDegrees;
 
                 string nodeName =
-                    $"{alliance} Reef Face {face} L0";
+                    $"{alliance} Reef Face {face} L1";
 
-                reefL0ScoringNodes.Add(
-                    new ReefL0ScoringNode(
+                reefL1ScoringNodes.Add(
+                    new ReefL1ScoringNode(
                         nodeName,
                         alliance,
                         face,
-                        l0Position,
-                        l0Heading
+                        l1Position,
+                        l1Heading
                     )
                 );
             }
@@ -828,14 +828,14 @@ public class FieldMap2D : MonoBehaviour
 
 
     // ============================================================
-    // GET A REEF L0 SCORING NODE
+    // GET A REEF L1 SCORING NODE
     // ============================================================
 
-    public ReefL0ScoringNode GetReefL0ScoringNode(
+    public ReefL1ScoringNode GetReefL1ScoringNode(
         ReefAlliance alliance,
         int faceNumber)
     {
-        foreach (ReefL0ScoringNode node in reefL0ScoringNodes)
+        foreach (ReefL1ScoringNode node in reefL1ScoringNodes)
         {
             if (node.alliance == alliance &&
                 node.faceNumber == faceNumber)
@@ -1114,7 +1114,7 @@ public class FieldMap2D : MonoBehaviour
         DrawTaskLocations();
         DrawTaskRegions();
         DrawReefScoringNodes();
-        DrawReefL0ScoringNodes();
+        DrawReefL1ScoringNodes();
     }
 
 
@@ -1315,12 +1315,12 @@ public class FieldMap2D : MonoBehaviour
 
 
     // ============================================================
-    // REEF L0 SCORING NODES
+    // REEF L1 SCORING NODES
     // ============================================================
 
-    private void DrawReefL0ScoringNodes()
+    private void DrawReefL1ScoringNodes()
     {
-        if (reefL0ScoringNodes == null)
+        if (reefL1ScoringNodes == null)
         {
             return;
         }
@@ -1329,8 +1329,8 @@ public class FieldMap2D : MonoBehaviour
             Color.white;
 
         foreach (
-            ReefL0ScoringNode node
-            in reefL0ScoringNodes)
+            ReefL1ScoringNode node
+            in reefL1ScoringNodes)
         {
             Vector3 position =
                 new Vector3(
