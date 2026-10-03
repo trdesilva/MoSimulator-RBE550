@@ -12575,6 +12575,699 @@ MonoBehaviour:
     y: 0
     width: 1
     height: 1
+--- !u!1 &1919434492
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1919434494}
+  - component: {fileID: 1919434493}
+  - component: {fileID: 1919434496}
+  - component: {fileID: 1919434495}
+  - component: {fileID: 1919434497}
+  - component: {fileID: 1919434498}
+  - component: {fileID: 1919434499}
+  - component: {fileID: 1919434500}
+  - component: {fileID: 1919434501}
+  m_Layer: 0
+  m_Name: FieldMap2D
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1919434493
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1919434492}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e45104a9fefab5c4fb9d8c84b43154fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  fieldBoundary:
+  - {x: -7.12, y: 4.03}
+  - {x: 7.07, y: 4.03}
+  - {x: 8.76, y: 2.77}
+  - {x: 8.76, y: -2.76}
+  - {x: 7.1, y: -4.03}
+  - {x: -7.13, y: -4.03}
+  - {x: -8.77, y: -2.76}
+  - {x: -8.77, y: 2.77}
+  cagePhysicalSize: 0.2
+  cageSafetyMargin: 0.02
+  navigationObstacles:
+  - name: Red Reef
+    vertices:
+    - {x: -5.133872, y: -0.476}
+    - {x: -4.298872, y: -0.955}
+    - {x: -3.463872, y: -0.476}
+    - {x: -3.463872, y: 0.476}
+    - {x: -4.298872, y: 0.955}
+    - {x: -5.133872, y: 0.476}
+  - name: Blue Reef
+    vertices:
+    - {x: 3.463872, y: -0.476}
+    - {x: 4.298872, y: -0.955}
+    - {x: 5.133872, y: -0.476}
+    - {x: 5.133872, y: 0.476}
+    - {x: 4.298872, y: 0.955}
+    - {x: 3.463872, y: 0.476}
+  - name: Cage 1
+    vertices:
+    - {x: -0.111, y: -3.3660002}
+    - {x: 0.12900001, y: -3.3660002}
+    - {x: 0.12900001, y: -3.126}
+    - {x: -0.111, y: -3.126}
+  - name: Cage 2
+    vertices:
+    - {x: -0.111, y: -2.2220001}
+    - {x: 0.12900001, y: -2.2220001}
+    - {x: 0.12900001, y: -1.982}
+    - {x: -0.111, y: -1.982}
+  - name: Cage 3
+    vertices:
+    - {x: -0.111, y: -1.17}
+    - {x: 0.12900001, y: -1.17}
+    - {x: 0.12900001, y: -0.92999995}
+    - {x: -0.111, y: -0.92999995}
+  - name: Cage 4
+    vertices:
+    - {x: -0.111, y: 0.944}
+    - {x: 0.12900001, y: 0.944}
+    - {x: 0.12900001, y: 1.184}
+    - {x: -0.111, y: 1.184}
+  - name: Cage 5
+    vertices:
+    - {x: -0.111, y: 2.0029998}
+    - {x: 0.12900001, y: 2.0029998}
+    - {x: 0.12900001, y: 2.243}
+    - {x: -0.111, y: 2.243}
+  - name: Cage 6
+    vertices:
+    - {x: -0.111, y: 3.098}
+    - {x: 0.12900001, y: 3.098}
+    - {x: 0.12900001, y: 3.3379998}
+    - {x: -0.111, y: 3.3379998}
+  taskLocations:
+  - name: Blue Coral Station +Z
+    type: 1
+    positionXZ: {x: 7.927174, y: 3.376354}
+    headingDegrees: 36
+  - name: Blue Coral Station -Z
+    type: 1
+    positionXZ: {x: 7.927174, y: -3.376354}
+    headingDegrees: 144
+  - name: Red Coral Station +Z
+    type: 1
+    positionXZ: {x: -7.927174, y: 3.376354}
+    headingDegrees: -36
+  - name: Red Coral Station -Z
+    type: 1
+    positionXZ: {x: -7.927174, y: -3.376354}
+    headingDegrees: -144
+  - name: Processor -X -Z
+    type: 2
+    positionXZ: {x: -2.7865, y: -4.037}
+    headingDegrees: 0
+  - name: Processor +X +Z
+    type: 2
+    positionXZ: {x: 2.7865, y: 4.037}
+    headingDegrees: 0
+  - name: Cage 1
+    type: 4
+    positionXZ: {x: 0.009, y: -3.246}
+    headingDegrees: 0
+  - name: Cage 2
+    type: 4
+    positionXZ: {x: 0.009, y: -2.102}
+    headingDegrees: 0
+  - name: Cage 3
+    type: 4
+    positionXZ: {x: 0.009, y: -1.05}
+    headingDegrees: 0
+  - name: Cage 4
+    type: 4
+    positionXZ: {x: 0.009, y: 1.064}
+    headingDegrees: 0
+  - name: Cage 5
+    type: 4
+    positionXZ: {x: 0.009, y: 2.123}
+    headingDegrees: 0
+  - name: Cage 6
+    type: 4
+    positionXZ: {x: 0.009, y: 3.218}
+    headingDegrees: 0
+  taskRegions:
+  - name: Blue Barge Scoring Region
+    type: 3
+    vertices:
+    - {x: -0.5, y: -3.821}
+    - {x: 0.5, y: -3.821}
+    - {x: 0.5, y: -0.153}
+    - {x: -0.5, y: -0.153}
+  - name: Red Barge Scoring Region
+    type: 3
+    vertices:
+    - {x: -0.5, y: 0.166}
+    - {x: 0.5, y: 0.166}
+    - {x: 0.5, y: 3.834}
+    - {x: -0.5, y: 3.834}
+  reefScoringNodes:
+  - name: Blue Reef Face 1 Left
+    alliance: 1
+    faceNumber: 1
+    branchSide: 0
+    positionXZ: {x: 5.8239, y: -0.17}
+    headingDegrees: -90
+  - name: Blue Reef Face 1 Right
+    alliance: 1
+    faceNumber: 1
+    branchSide: 1
+    positionXZ: {x: 5.8239, y: 0.18}
+    headingDegrees: -90
+  - name: Blue Reef Face 2 Left
+    alliance: 1
+    faceNumber: 2
+    branchSide: 0
+    positionXZ: {x: 5.2086, y: 1.2357}
+    headingDegrees: -150
+  - name: Blue Reef Face 2 Right
+    alliance: 1
+    faceNumber: 2
+    branchSide: 1
+    positionXZ: {x: 4.9055, y: 1.4107}
+    headingDegrees: -150
+  - name: Blue Reef Face 3 Left
+    alliance: 1
+    faceNumber: 3
+    branchSide: 0
+    positionXZ: {x: 3.6836, y: 1.4057}
+    headingDegrees: 150
+  - name: Blue Reef Face 3 Right
+    alliance: 1
+    faceNumber: 3
+    branchSide: 1
+    positionXZ: {x: 3.3805, y: 1.2307}
+    headingDegrees: 150
+  - name: Blue Reef Face 4 Left
+    alliance: 1
+    faceNumber: 4
+    branchSide: 0
+    positionXZ: {x: 2.7739, y: 0.17}
+    headingDegrees: 90
+  - name: Blue Reef Face 4 Right
+    alliance: 1
+    faceNumber: 4
+    branchSide: 1
+    positionXZ: {x: 2.7739, y: -0.18}
+    headingDegrees: 90
+  - name: Blue Reef Face 5 Left
+    alliance: 1
+    faceNumber: 5
+    branchSide: 0
+    positionXZ: {x: 3.3891, y: -1.2357}
+    headingDegrees: 30
+  - name: Blue Reef Face 5 Right
+    alliance: 1
+    faceNumber: 5
+    branchSide: 1
+    positionXZ: {x: 3.6923, y: -1.4107}
+    headingDegrees: 30
+  - name: Blue Reef Face 6 Left
+    alliance: 1
+    faceNumber: 6
+    branchSide: 0
+    positionXZ: {x: 4.9141, y: -1.4057}
+    headingDegrees: -30
+  - name: Blue Reef Face 6 Right
+    alliance: 1
+    faceNumber: 6
+    branchSide: 1
+    positionXZ: {x: 5.2173, y: -1.2307}
+    headingDegrees: -30
+  - name: Red Reef Face 1 Left
+    alliance: 0
+    faceNumber: 1
+    branchSide: 0
+    positionXZ: {x: -2.7739, y: -0.17}
+    headingDegrees: -90
+  - name: Red Reef Face 1 Right
+    alliance: 0
+    faceNumber: 1
+    branchSide: 1
+    positionXZ: {x: -2.7739, y: 0.18}
+    headingDegrees: -90
+  - name: Red Reef Face 2 Left
+    alliance: 0
+    faceNumber: 2
+    branchSide: 0
+    positionXZ: {x: -3.3891, y: 1.2357}
+    headingDegrees: -150
+  - name: Red Reef Face 2 Right
+    alliance: 0
+    faceNumber: 2
+    branchSide: 1
+    positionXZ: {x: -3.6923, y: 1.4107}
+    headingDegrees: -150
+  - name: Red Reef Face 3 Left
+    alliance: 0
+    faceNumber: 3
+    branchSide: 0
+    positionXZ: {x: -4.9141, y: 1.4057}
+    headingDegrees: 150
+  - name: Red Reef Face 3 Right
+    alliance: 0
+    faceNumber: 3
+    branchSide: 1
+    positionXZ: {x: -5.2173, y: 1.2307}
+    headingDegrees: 150
+  - name: Red Reef Face 4 Left
+    alliance: 0
+    faceNumber: 4
+    branchSide: 0
+    positionXZ: {x: -5.8239, y: 0.17}
+    headingDegrees: 90
+  - name: Red Reef Face 4 Right
+    alliance: 0
+    faceNumber: 4
+    branchSide: 1
+    positionXZ: {x: -5.8239, y: -0.18}
+    headingDegrees: 90
+  - name: Red Reef Face 5 Left
+    alliance: 0
+    faceNumber: 5
+    branchSide: 0
+    positionXZ: {x: -5.2086, y: -1.2357}
+    headingDegrees: 30
+  - name: Red Reef Face 5 Right
+    alliance: 0
+    faceNumber: 5
+    branchSide: 1
+    positionXZ: {x: -4.9055, y: -1.4107}
+    headingDegrees: 30
+  - name: Red Reef Face 6 Left
+    alliance: 0
+    faceNumber: 6
+    branchSide: 0
+    positionXZ: {x: -3.6836, y: -1.4057}
+    headingDegrees: -30
+  - name: Red Reef Face 6 Right
+    alliance: 0
+    faceNumber: 6
+    branchSide: 1
+    positionXZ: {x: -3.3805, y: -1.2307}
+    headingDegrees: -30
+  reefL1ScoringNodes:
+  - name: Blue Reef Face 1 L1
+    alliance: 1
+    faceNumber: 1
+    positionXZ: {x: 5.8239, y: 0.0050000027}
+    headingDegrees: -90
+  - name: Blue Reef Face 2 L1
+    alliance: 1
+    faceNumber: 2
+    positionXZ: {x: 5.0570498, y: 1.3232}
+    headingDegrees: -150
+  - name: Blue Reef Face 3 L1
+    alliance: 1
+    faceNumber: 3
+    positionXZ: {x: 3.5320501, y: 1.3182}
+    headingDegrees: 150
+  - name: Blue Reef Face 4 L1
+    alliance: 1
+    faceNumber: 4
+    positionXZ: {x: 2.7739, y: -0.0050000027}
+    headingDegrees: 90
+  - name: Blue Reef Face 5 L1
+    alliance: 1
+    faceNumber: 5
+    positionXZ: {x: 3.5407, y: -1.3232}
+    headingDegrees: 30
+  - name: Blue Reef Face 6 L1
+    alliance: 1
+    faceNumber: 6
+    positionXZ: {x: 5.0657, y: -1.3182}
+    headingDegrees: -30
+  - name: Red Reef Face 1 L1
+    alliance: 0
+    faceNumber: 1
+    positionXZ: {x: -2.7739, y: 0.0050000027}
+    headingDegrees: -90
+  - name: Red Reef Face 2 L1
+    alliance: 0
+    faceNumber: 2
+    positionXZ: {x: -3.5407, y: 1.3232}
+    headingDegrees: -150
+  - name: Red Reef Face 3 L1
+    alliance: 0
+    faceNumber: 3
+    positionXZ: {x: -5.0657, y: 1.3182}
+    headingDegrees: 150
+  - name: Red Reef Face 4 L1
+    alliance: 0
+    faceNumber: 4
+    positionXZ: {x: -5.8239, y: -0.0050000027}
+    headingDegrees: 90
+  - name: Red Reef Face 5 L1
+    alliance: 0
+    faceNumber: 5
+    positionXZ: {x: -5.0570498, y: -1.3232}
+    headingDegrees: 30
+  - name: Red Reef Face 6 L1
+    alliance: 0
+    faceNumber: 6
+    positionXZ: {x: -3.5320501, y: -1.3182}
+    headingDegrees: -30
+--- !u!4 &1919434494
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1919434492}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1919434495
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1919434492}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 69dc606adf7fb234a8857cee0495373e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  printOnStart: 1
+  drawGizmos: 1
+--- !u!114 &1919434496
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1919434492}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9d870d7d003cd58429a44fb5646f36e0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  robot:
+    carriedGamePiece: 0
+    currentTask: 0
+    currentTargetName: 
+  alliance: 1
+  allianceState:
+    l1CoralCount: 0
+    reefFaces:
+    - faceNumber: 1
+      leftL2:
+        faceNumber: 1
+        target: 1
+        level: 1
+        occupied: 0
+      leftL3:
+        faceNumber: 1
+        target: 1
+        level: 2
+        occupied: 0
+      leftL4:
+        faceNumber: 1
+        target: 1
+        level: 3
+        occupied: 0
+      rightL2:
+        faceNumber: 1
+        target: 2
+        level: 1
+        occupied: 0
+      rightL3:
+        faceNumber: 1
+        target: 2
+        level: 2
+        occupied: 0
+      rightL4:
+        faceNumber: 1
+        target: 2
+        level: 3
+        occupied: 0
+      algaePresent: 0
+    - faceNumber: 2
+      leftL2:
+        faceNumber: 2
+        target: 1
+        level: 1
+        occupied: 0
+      leftL3:
+        faceNumber: 2
+        target: 1
+        level: 2
+        occupied: 0
+      leftL4:
+        faceNumber: 2
+        target: 1
+        level: 3
+        occupied: 0
+      rightL2:
+        faceNumber: 2
+        target: 2
+        level: 1
+        occupied: 0
+      rightL3:
+        faceNumber: 2
+        target: 2
+        level: 2
+        occupied: 0
+      rightL4:
+        faceNumber: 2
+        target: 2
+        level: 3
+        occupied: 0
+      algaePresent: 0
+    - faceNumber: 3
+      leftL2:
+        faceNumber: 3
+        target: 1
+        level: 1
+        occupied: 0
+      leftL3:
+        faceNumber: 3
+        target: 1
+        level: 2
+        occupied: 0
+      leftL4:
+        faceNumber: 3
+        target: 1
+        level: 3
+        occupied: 0
+      rightL2:
+        faceNumber: 3
+        target: 2
+        level: 1
+        occupied: 0
+      rightL3:
+        faceNumber: 3
+        target: 2
+        level: 2
+        occupied: 0
+      rightL4:
+        faceNumber: 3
+        target: 2
+        level: 3
+        occupied: 0
+      algaePresent: 0
+    - faceNumber: 4
+      leftL2:
+        faceNumber: 4
+        target: 1
+        level: 1
+        occupied: 0
+      leftL3:
+        faceNumber: 4
+        target: 1
+        level: 2
+        occupied: 0
+      leftL4:
+        faceNumber: 4
+        target: 1
+        level: 3
+        occupied: 0
+      rightL2:
+        faceNumber: 4
+        target: 2
+        level: 1
+        occupied: 0
+      rightL3:
+        faceNumber: 4
+        target: 2
+        level: 2
+        occupied: 0
+      rightL4:
+        faceNumber: 4
+        target: 2
+        level: 3
+        occupied: 0
+      algaePresent: 0
+    - faceNumber: 5
+      leftL2:
+        faceNumber: 5
+        target: 1
+        level: 1
+        occupied: 0
+      leftL3:
+        faceNumber: 5
+        target: 1
+        level: 2
+        occupied: 0
+      leftL4:
+        faceNumber: 5
+        target: 1
+        level: 3
+        occupied: 0
+      rightL2:
+        faceNumber: 5
+        target: 2
+        level: 1
+        occupied: 0
+      rightL3:
+        faceNumber: 5
+        target: 2
+        level: 2
+        occupied: 0
+      rightL4:
+        faceNumber: 5
+        target: 2
+        level: 3
+        occupied: 0
+      algaePresent: 0
+    - faceNumber: 6
+      leftL2:
+        faceNumber: 6
+        target: 1
+        level: 1
+        occupied: 0
+      leftL3:
+        faceNumber: 6
+        target: 1
+        level: 2
+        occupied: 0
+      leftL4:
+        faceNumber: 6
+        target: 1
+        level: 3
+        occupied: 0
+      rightL2:
+        faceNumber: 6
+        target: 2
+        level: 1
+        occupied: 0
+      rightL3:
+        faceNumber: 6
+        target: 2
+        level: 2
+        occupied: 0
+      rightL4:
+        faceNumber: 6
+        target: 2
+        level: 3
+        occupied: 0
+      algaePresent: 0
+    processorAlgaeScored: 0
+    netAlgaeScored: 0
+    robotsClimbed: 0
+  matchTimeRemaining: 0
+  endgameThresholdSeconds: 30
+--- !u!114 &1919434497
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1919434492}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 72c023eac6b00e6448d23f044c83badc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  printIntervalSeconds: 1
+--- !u!114 &1919434498
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1919434492}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 84eb4e6c50c0fd64abcc296dbd5a04c1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  fieldMap: {fileID: 1919434493}
+  matchState: {fileID: 1919434496}
+  updateIntervalSeconds: 0.1
+  logMappingOnStart: 1
+--- !u!114 &1919434499
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1919434492}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9694a4dd1db80ff4baff96b2913c889e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  matchState: {fileID: 1919434496}
+  updateInterval: 0.1
+  logScorersOnStart: 1
+--- !u!114 &1919434500
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1919434492}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5868d95d1f8688549a3b3be7ad0a1f85, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  matchState: {fileID: 1919434496}
+--- !u!114 &1919434501
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1919434492}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c0661ef3d36344848883cdb97717814a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  fieldMap: {fileID: 1919434493}
+  robotWidth: 0.915
+  robotLength: 0.914
+  extraSafetyMargin: 0.05
+  segmentCheckSpacing: 0.1
+  showReefClearance: 1
+  showCageClearance: 1
+  showFieldClearance: 1
 --- !u!1 &1944744958
 GameObject:
   m_ObjectHideFlags: 0
@@ -12712,6 +13405,24 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1944744958}
   m_CullTransparentMesh: 1
+--- !u!1 &1986061888 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 8898240519967523743, guid: ca811417016c50f4eb3c391112510a7a,
+    type: 3}
+  m_PrefabInstance: {fileID: 2735168606659802516}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1986061890
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1986061888}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b0ad3369638a30c4a8dafabfbc5feec6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &1991603345
 GameObject:
   m_ObjectHideFlags: 0
@@ -13878,7 +14589,11 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 8898240519967523743, guid: ca811417016c50f4eb3c391112510a7a,
+        type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1986061890}
   m_SourcePrefab: {fileID: 100100000, guid: ca811417016c50f4eb3c391112510a7a, type: 3}
 --- !u!1 &3321286871919242020
 GameObject:
@@ -14297,3 +15012,4 @@ SceneRoots:
   - {fileID: 1377403649}
   - {fileID: 682068616}
   - {fileID: 826888424}
+  - {fileID: 1919434494}
