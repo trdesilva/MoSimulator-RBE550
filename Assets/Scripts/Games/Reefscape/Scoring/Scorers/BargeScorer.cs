@@ -8,61 +8,101 @@ namespace Games.Reefscape.Scoring.Scorers
 {
     public class BargeScorer : MonoBehaviour, IScorer
     {
-        [field: SerializeField] public Alliance Alliance { get; private set; }
+        [field: SerializeField]
+        public Alliance Alliance { get; private set; }
 
         private BoxCollider _scoringCollider;
         private Vector3 boxSize;
         private Vector3 boxPosition;
         private Quaternion boxRotation;
-        private HashSet<Collider> _scoredAlgae = new HashSet<Collider>();
+
+        private HashSet<Collider> _scoredAlgae =
+            new HashSet<Collider>();
+
         private int _algaeCount = 0;
         private bool _gameEnded = false;
+
+        // ============================================================
+        // START
+        // ============================================================
 
         private void Start()
         {
             _scoringCollider = GetComponent<BoxCollider>();
+
             if (_scoringCollider == null)
             {
-                Debug.LogError("BargeScorer could not find a BoxCollider component.");
+                Debug.LogError(
+                    "BargeScorer could not find a BoxCollider component."
+                );
+
                 enabled = false;
                 return;
             }
-            
-            boxSize = Utils.MultiplyVectors(_scoringCollider.size, _scoringCollider.transform.lossyScale) / 2;
-            boxPosition = _scoringCollider.bounds.center;
-            boxRotation = _scoringCollider.transform.rotation;
+
+            boxSize =
+                Utils.MultiplyVectors(
+                    _scoringCollider.size,
+                    _scoringCollider.transform.lossyScale
+                ) / 2;
+
+            boxPosition =
+                _scoringCollider.bounds.center;
+
+            boxRotation =
+                _scoringCollider.transform.rotation;
         }
+
+        // ============================================================
+        // UPDATE
+        // ============================================================
 
         private void Update()
         {
-            // Stop accepting new algae once the game has ended
+            // Stop accepting new algae once the game has ended.
             if (_gameEnded)
             {
                 return;
             }
 
-            var results = Physics.OverlapBox(boxPosition, boxSize, boxRotation);
+            Collider[] results =
+                Physics.OverlapBox(
+                    boxPosition,
+                    boxSize,
+                    boxRotation
+                );
 
-            // Build current set of algae colliders in the zone
-            var currentAlgae = new HashSet<Collider>();
-            foreach (var result in results)
+            // Build the current set of Algae inside the scoring zone.
+            HashSet<Collider> currentAlgae =
+                new HashSet<Collider>();
+
+            foreach (Collider result in results)
             {
-                if (result == null) continue;
-                if (!result.CompareTag("Algae")) continue;
+                if (result == null)
+                {
+                    continue;
+                }
+
+                if (!result.CompareTag("Algae"))
+                {
+                    continue;
+                }
 
                 currentAlgae.Add(result);
 
+                // New Algae entered the Net.
                 if (!_scoredAlgae.Contains(result))
                 {
-                    // New algae entered the zone, mark it as scored
                     _scoredAlgae.Add(result);
                     _algaeCount++;
                 }
             }
 
-            // Remove algae that have left the zone and adjust count
-            var toRemove = new List<Collider>();
-            foreach (var scored in _scoredAlgae)
+            // Find Algae that have left the scoring zone.
+            List<Collider> toRemove =
+                new List<Collider>();
+
+            foreach (Collider scored in _scoredAlgae)
             {
                 if (scored == null)
                 {
@@ -76,18 +116,29 @@ namespace Games.Reefscape.Scoring.Scorers
                 }
             }
 
-            foreach (var rem in toRemove)
+            // Remove Algae that are no longer scored.
+            foreach (Collider rem in toRemove)
             {
                 if (_scoredAlgae.Remove(rem))
                 {
-                    _algaeCount = Mathf.Max(0, _algaeCount - 1);
+                    _algaeCount =
+                        Mathf.Max(
+                            0,
+                            _algaeCount - 1
+                        );
                 }
             }
         }
 
-        public void AddScore(IScoreData scoreData, GameState gameState)
+        // ============================================================
+        // SCORE
+        // ============================================================
+
+        public void AddScore(
+            IScoreData scoreData,
+            GameState gameState)
         {
-            // Mark game as ended when End state is reached
+            // Stop accepting new Algae after the match ends.
             if (gameState == GameState.End)
             {
                 _gameEnded = true;
@@ -95,17 +146,24 @@ namespace Games.Reefscape.Scoring.Scorers
 
             if (scoreData is ReefscapeScoreData reefscapeScoreData)
             {
-                // Add the total points based on counted algae
-                reefscapeScoreData.NetPoints += _algaeCount * 4;
-                reefscapeScoreData.AlgaeScored += _algaeCount;
+                reefscapeScoreData.NetPoints +=
+                    _algaeCount * 4;
+
+                reefscapeScoreData.AlgaeScored +=
+                    _algaeCount;
             }
             else
             {
-                Debug.LogError("Invalid score data type passed to BargeScorer.");
+                Debug.LogError(
+                    "Invalid score data type passed to BargeScorer."
+                );
             }
         }
 
-        // Read-only accessor for MatchState synchronization.
+        // ============================================================
+        // MATCH STATE ACCESSOR
+        // ============================================================
+
         public int GetScoredAlgaeCount()
         {
             return _algaeCount;
