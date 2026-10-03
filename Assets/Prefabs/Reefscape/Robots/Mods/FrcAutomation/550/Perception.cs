@@ -84,7 +84,7 @@ public class Perception : MonoBehaviour
                 if (result != null)
                 {
                     var resultList = new List<GameObject>(result);
-                    resultList.Sort((g1, g2) => (int)((g1.transform.position - position).magnitude - (g2.transform.position - position).magnitude));
+                    resultList.Sort((g1, g2) => (g1.transform.position - position).sqrMagnitude.CompareTo((g2.transform.position - position).sqrMagnitude)); // for neighbor sort, small change
                     if (resultCount < resultList.Count)
                     {
                         resultList.RemoveRange(resultCount, resultList.Count - resultCount);
@@ -145,8 +145,8 @@ public class Perception : MonoBehaviour
         TrackTag("BlueRobot", 10);
         TrackTag("RedRobot", 10);
         TrackTag("Cage", 60);
-        TrackTag("Algae", 1);
-        TrackTag("Coral", 1);
+        TrackTag("Algae", 10); // less times with the timestep change
+        TrackTag("Coral", 10);
     }
 
     void FixedUpdate()
