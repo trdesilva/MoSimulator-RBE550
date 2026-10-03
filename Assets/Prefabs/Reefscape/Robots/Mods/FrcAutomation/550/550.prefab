@@ -44293,6 +44293,7 @@ GameObject:
   - component: {fileID: 207763471193767594}
   - component: {fileID: 1179240396592833658}
   - component: {fileID: -781471833140239558}
+  - component: {fileID: -6880834036589320373}
   m_Layer: 6
   m_Name: 550
   m_TagString: BlueRobot
@@ -44937,6 +44938,19 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 911d980bff2e5af4b88ede3a17a72c24, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  perception: {fileID: -6880834036589320373}
+--- !u!114 &-6880834036589320373
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4108337974173178762}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6c742d24aefbb144581821902f3e33cf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
 --- !u!1 &4108606758337334964

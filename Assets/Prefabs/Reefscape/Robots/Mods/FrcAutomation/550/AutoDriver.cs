@@ -1,32 +1,46 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
 
 public class AutoDriver : MonoBehaviour
 {
-    private Gamepad gamepad;
+    [SerializeField]
+    private Perception perception;
 
     // Start is called before the first frame update
     void Start()
     {
         Debug.LogWarning("AutoDriver started");
-        gamepad = InputSystem.GetDevice<Gamepad>("autopad");
-        if(gamepad == null)
-        {
-            gamepad = InputSystem.AddDevice<Gamepad>("autopad"); // persists as long as the process is alive
-        }
+        InvokeRepeating(nameof(LogNearestAlgae), 5f, 1f);
     }
 
     // Update is called once per frame
     void Update()
     {
-        // simulate 100% up input on the left analog stick
-        using (StateEvent.From(gamepad, out InputEventPtr eventPtr))
+        
+    }
+
+    void LogNearestAlgae()
+    {
+        // TODO for some reason, this seems to update slowly with algae on the reef, but not algae on the floor
+        ICollection<GameObject> algae = perception.GetNearestWithTag("Algae", transform.position);
+        if (algae != null)
         {
-            gamepad["leftStick/y"].WriteValueIntoEvent<float>(1, eventPtr);
-            InputSystem.QueueEvent(eventPtr);
+            if (algae.Count > 0)
+            {
+                Debug.Log($"Nearest algae: {algae.First().transform.position}");
+            }
+            else
+            {
+                Debug.LogWarning("GetNearestWithTag returned empty array");
+            }
+        }
+        else
+        {
+            Debug.LogWarning("GetNearestWithTag returned null array");
         }
     }
 }
