@@ -44366,11 +44366,11 @@ MonoBehaviour:
   drivetrainParent: {fileID: 4645104971896515016}
   wheelDiameter: 4
   maxSpeed:
-    _obfuscationKey: 142393769
-    _encryptedValue: 1240777129
+    _obfuscationKey: 905590574
+    _encryptedValue: 1951545134
   accelerationForce:
-    _obfuscationKey: 1816806288
-    _encryptedValue: 759841680
+    _obfuscationKey: 767355347
+    _encryptedValue: 1826417107
   falloffPercent: 0.075
   falloffExponent: 10
   steerMultiplier: 1
@@ -44956,9 +44956,9 @@ MonoBehaviour:
   precisePositionTolerance: 0.01
   preciseHeadingTolerance: 0.5
   preciseDriveMax: 1
-  preciseDriveKp: 1.9
+  preciseDriveKp: 0.9
   preciseDriveKf: 0.2
-  preciseRotationKp: 0.02
+  preciseRotationKp: 0.03
   preciseRotationKf: 0.02
   preciseRotationMax: 0.35
   scorePrepSeconds: 0.65
@@ -45353,13 +45353,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   planner: {fileID: 0}
-  driveSpeedKf: 0.4
-  driveSpeedKp: 1.5
+  driveSpeedKf: 0.25
+  driveSpeedKp: 0.45
   driveSpeedMax: 1
   waypointTolerance: 0.25
   goalTolerance: 0.12
-  rotationKp: 0.02
-  rotationKf: 0.02
+  rotationKp: 0.008
+  rotationKf: 0.018
 --- !u!1 &4108606758337334964
 GameObject:
   m_ObjectHideFlags: 0

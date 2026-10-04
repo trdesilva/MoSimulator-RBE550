@@ -82,22 +82,22 @@ public class AutoDriver : MonoBehaviour
     private float preciseDriveMax = 0.22f;
 
     [SerializeField]
-    private float preciseDriveKp = 1.25f;
+    private float preciseDriveKp = 0.9f;
 
     [SerializeField]
     private float preciseDriveKf = 0.2f;
 
     [SerializeField]
-    private float preciseRotationKp = 0.020f;
+    private float preciseRotationKp = 0.03f;
 
     [SerializeField]
-    private float preciseRotationKf = 0.03f;
+    private float preciseRotationKf = 0.02f;
 
     [SerializeField]
     private float preciseRotationMax = 0.35f;
 
     [SerializeField]
-    private float scorePrepSeconds = 0.5f;
+    private float scorePrepSeconds = 0.65f;
 
     [SerializeField]
     private float scoreCheckDelay = 0.5f;

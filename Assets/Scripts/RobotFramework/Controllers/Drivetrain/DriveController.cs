@@ -16,8 +16,8 @@ namespace RobotFramework.Controllers.Drivetrain
         // Configuration
         [SerializeField] private GameObject drivetrainParent;
         [SerializeField] private float wheelDiameter = 4f;
-        [SerializeField] private SecureFloat maxSpeed = 17f;
-        [SerializeField] private SecureFloat accelerationForce = 8f;
+        [SerializeField] private SecureFloat maxSpeed = 21f;
+        [SerializeField] private SecureFloat accelerationForce = 14f;
         [SerializeField] private float falloffPercent = 0.075f;
         [SerializeField] private int falloffExponent = 10;
         [SerializeField] private float steerMultiplier = 1f;

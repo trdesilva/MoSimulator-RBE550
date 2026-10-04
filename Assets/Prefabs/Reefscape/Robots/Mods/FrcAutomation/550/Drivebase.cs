@@ -6,13 +6,13 @@ public class Drivebase : MonoBehaviour
 {
     [SerializeField] private GridPlanner planner;
 
-    [SerializeField] private float driveSpeedKf = .5f;
-    [SerializeField] private float driveSpeedKp = 0.25f;
+    [SerializeField] private float driveSpeedKf = .25f;
+    [SerializeField] private float driveSpeedKp = 0.45f;
     [SerializeField] private float driveSpeedMax = 1.0f;
     [SerializeField] private float waypointTolerance = 0.25f;
     [SerializeField] private float goalTolerance = 0.12f;
-    [SerializeField] private float rotationKp = 0.02f;
-    [SerializeField] private float rotationKf = 0.03f;
+    [SerializeField] private float rotationKp = 0.008f;
+    [SerializeField] private float rotationKf = 0.018f;
 
     private DriveController driveController;
 
