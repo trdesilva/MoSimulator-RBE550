@@ -6,10 +6,13 @@ public class Drivebase : MonoBehaviour
 {
     [SerializeField] private GridPlanner planner;
 
-    [SerializeField] private float driveSpeed = 0.6f;
+    [SerializeField] private float driveSpeedKf = .5f;
+    [SerializeField] private float driveSpeedKp = 0.25f;
+    [SerializeField] private float driveSpeedMax = 1.0f;
     [SerializeField] private float waypointTolerance = 0.25f;
     [SerializeField] private float goalTolerance = 0.12f;
-    [SerializeField] private float rotationKp = 0.015f;
+    [SerializeField] private float rotationKp = 0.02f;
+    [SerializeField] private float rotationKf = 0.03f;
 
     private DriveController driveController;
 
@@ -90,6 +93,7 @@ public class Drivebase : MonoBehaviour
             transform.position.z
         );
 
+        bool finalWaypoint = waypointIndex == path.Count - 1;
         while (
             waypointIndex < path.Count - 1 &&
             Vector2.Distance(
@@ -97,7 +101,10 @@ public class Drivebase : MonoBehaviour
                 path[waypointIndex]
             ) < waypointTolerance)
         {
+            Debug.Log($"Reached waypoint at {path[waypointIndex]}. (Current: {currentPosition})");
             waypointIndex++;
+            finalWaypoint = waypointIndex == path.Count - 1;
+            Debug.Log($"Next waypoint at {path[waypointIndex]}, finalWaypoint: {finalWaypoint}");
         }
 
         Vector2 target =
@@ -109,9 +116,6 @@ public class Drivebase : MonoBehaviour
         float distance =
             toTarget.magnitude;
 
-        bool finalWaypoint =
-            waypointIndex == path.Count - 1;
-
         if (
             finalWaypoint &&
             distance < goalTolerance)
@@ -121,17 +125,12 @@ public class Drivebase : MonoBehaviour
         }
 
         float speed =
-            driveSpeed;
+            driveSpeedMax;
 
         if (finalWaypoint)
         {
-            speed = Mathf.Min(
-                driveSpeed,
-                Mathf.Max(
-                    0.15f,
-                    distance
-                )
-            );
+            speed = Mathf.Clamp(distance * driveSpeedKp + driveSpeedKf, 0.05f, driveSpeedMax);
+            Debug.Log($"Approach speed: {speed}");
         }
 
         Vector2 input =
@@ -167,11 +166,11 @@ public class Drivebase : MonoBehaviour
                 goalHeading
             );
 
-        if (Mathf.Abs(headingError) > 3f)
+        if (Mathf.Abs(headingError) > 1.5f)
         {
             float rotation =
                 -Mathf.Clamp(
-                    headingError * rotationKp,
+                    headingError * rotationKp + rotationKf * Mathf.Sign(headingError),
                     -1f,
                     1f
                 );

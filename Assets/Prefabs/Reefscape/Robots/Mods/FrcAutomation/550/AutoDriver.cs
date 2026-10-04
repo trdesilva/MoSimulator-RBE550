@@ -85,16 +85,22 @@ public class AutoDriver : MonoBehaviour
     private float preciseDriveKp = 1.25f;
 
     [SerializeField]
+    private float preciseDriveKf = 0.2f;
+
+    [SerializeField]
     private float preciseRotationKp = 0.020f;
+
+    [SerializeField]
+    private float preciseRotationKf = 0.03f;
 
     [SerializeField]
     private float preciseRotationMax = 0.35f;
 
     [SerializeField]
-    private float scorePrepSeconds = 1.75f;
+    private float scorePrepSeconds = 0.5f;
 
     [SerializeField]
-    private float scoreCheckDelay = 1.00f;
+    private float scoreCheckDelay = 0.5f;
 
     [SerializeField]
     private bool repeatCycles = true;
@@ -1244,8 +1250,8 @@ public class AutoDriver : MonoBehaviour
             float speed =
                 Mathf.Clamp(
                     distance *
-                    preciseDriveKp,
-                    0.025f,
+                    preciseDriveKp + preciseDriveKf,
+                    0.01f,
                     preciseDriveMax
                 );
 
@@ -1265,7 +1271,7 @@ public class AutoDriver : MonoBehaviour
             rotation =
                 -Mathf.Clamp(
                     headingError *
-                    preciseRotationKp,
+                    preciseRotationKp + preciseRotationKf * Mathf.Sign(headingError),
                     -preciseRotationMax,
                     preciseRotationMax
                 );

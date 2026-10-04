@@ -44944,6 +44944,26 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   perception: {fileID: -6880834036589320373}
+  fieldMap: {fileID: 2497039299113447515}
+  startupDelay: 1
+  pickupStandOff: 0.6
+  pickupClaimDistance: 0.85
+  intakePrepSeconds: 0.65
+  coralReplanDistance: 0.2
+  coralReplanPeriod: 0.35
+  maxLooseCoralHeight: 0.55
+  reefStageDistance: 0.5
+  precisePositionTolerance: 0.01
+  preciseHeadingTolerance: 0.5
+  preciseDriveMax: 1
+  preciseDriveKp: 1.9
+  preciseDriveKf: 0.2
+  preciseRotationKp: 0.02
+  preciseRotationKf: 0.02
+  preciseRotationMax: 0.35
+  scorePrepSeconds: 0.65
+  scoreCheckDelay: 0.5
+  repeatCycles: 1
 --- !u!114 &-6880834036589320373
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -45333,10 +45353,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   planner: {fileID: 0}
-  driveSpeed: 0.6
+  driveSpeedKf: 0.4
+  driveSpeedKp: 1.5
+  driveSpeedMax: 1
   waypointTolerance: 0.25
   goalTolerance: 0.12
-  rotationKp: 0.015
+  rotationKp: 0.02
+  rotationKf: 0.02
 --- !u!1 &4108606758337334964
 GameObject:
   m_ObjectHideFlags: 0
