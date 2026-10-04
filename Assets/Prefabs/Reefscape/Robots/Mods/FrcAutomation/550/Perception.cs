@@ -2,10 +2,10 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Threading;
-using Unity.VisualScripting.YamlDotNet.Core.Tokens;
-using UnityEditor;
+// using Unity.VisualScripting.YamlDotNet.Core.Tokens;
+// using UnityEditor;
 using UnityEngine;
-using UnityEngine.UIElements;
+// using UnityEngine.UIElements;
 
 public class Perception : MonoBehaviour
 {
@@ -15,7 +15,7 @@ public class Perception : MonoBehaviour
         private int UpdatePeriodFrames { get; set; }
         PointOctree<GameObject> Octree { get; set; }
         Func<GameObject[]> UpdateCallback;
-        
+
         private int framesSinceUpdate = 0;
         ReaderWriterLock octreeLock;
 
@@ -31,7 +31,7 @@ public class Perception : MonoBehaviour
 
             Octree = new PointOctree<GameObject>(5f, new Vector3(), 0.5f);
 
-            if(updateCallback == null)
+            if (updateCallback == null)
             {
                 UpdateCallback = () => { return GameObject.FindGameObjectsWithTag(Tag); };
             }
@@ -45,7 +45,7 @@ public class Perception : MonoBehaviour
 
         public void TryUpdate()
         {
-            if(UpdatePeriodFrames > 0)
+            if (UpdatePeriodFrames > 0)
             {
                 framesSinceUpdate += 1;
                 if (framesSinceUpdate >= UpdatePeriodFrames)
@@ -81,11 +81,11 @@ public class Perception : MonoBehaviour
                 octreeLock.AcquireReaderLock(50);
                 // TODO this octree implementation doesn't actually provide a good nearest-neighbor API
                 GameObject[] result = Octree.GetNearby(position, 5f);
-                if(result != null)
+                if (result != null)
                 {
                     var resultList = new List<GameObject>(result);
-                    resultList.Sort((g1, g2) => (int)((g1.transform.position - position).magnitude - (g2.transform.position - position).magnitude));
-                    if(resultCount <  resultList.Count)
+                    resultList.Sort((g1, g2) => (g1.transform.position - position).sqrMagnitude.CompareTo((g2.transform.position - position).sqrMagnitude)); // for neighbor sort, small change
+                    if (resultCount < resultList.Count)
                     {
                         resultList.RemoveRange(resultCount, resultList.Count - resultCount);
                     }
@@ -96,9 +96,9 @@ public class Perception : MonoBehaviour
                     Debug.LogWarning($"No objects found with tag {Tag}");
                     return null;
                 }
-                
+
             }
-            catch(TimeoutException e)
+            catch (TimeoutException e)
             {
                 Debug.LogError($"Timeout in GetNearest for tag {Tag}");
                 return null;
@@ -135,7 +135,7 @@ public class Perception : MonoBehaviour
     {
         Debug.Log("Perception starting");
         trackedGroups = new Dictionary<string, TrackedObjectGroup>();
-        
+
         // Static objects
         TrackTag("ReefFace", 0);
         TrackTag("BlueBargeZone", 0);
@@ -145,14 +145,14 @@ public class Perception : MonoBehaviour
         TrackTag("BlueRobot", 10);
         TrackTag("RedRobot", 10);
         TrackTag("Cage", 60);
-        TrackTag("Algae", 1);
-        TrackTag("Coral", 1);
+        TrackTag("Algae", 10); // less times with the timestep change
+        TrackTag("Coral", 10);
     }
 
     void FixedUpdate()
     {
         // TODO this is slow, try replacing with coroutines
-        foreach(TrackedObjectGroup group in trackedGroups.Values)
+        foreach (TrackedObjectGroup group in trackedGroups.Values)
         {
             group.TryUpdate();
         }
@@ -160,7 +160,7 @@ public class Perception : MonoBehaviour
 
     void TrackTag(string tag, int updatePeriodFrames, Func<GameObject[]> updateCallback = null)
     {
-        if(trackedGroups.ContainsKey(tag))
+        if (trackedGroups.ContainsKey(tag))
         {
             Debug.LogWarning($"{tag} is already tracked by Perception");
             return;
@@ -170,7 +170,7 @@ public class Perception : MonoBehaviour
 
     public ICollection<GameObject> GetNearestWithTag(string tag, Vector3 position, int resultCount = 1)
     {
-        if(trackedGroups.ContainsKey(tag))
+        if (trackedGroups.ContainsKey(tag))
         {
             return trackedGroups[tag].GetNearest(position, resultCount);
         }
