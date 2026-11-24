@@ -42,7 +42,7 @@ public class AutoDriver : MonoBehaviour
         Done
     }
 
-    private enum OperatingMode { ScoreCoral, ReefAlgaeToProcessor }
+    private enum OperatingMode { ScoreCoral, ReefAlgaeToProcessor, ReefAlgaeProcessorThenNet }
     [Header("Algae Settings")]
     [SerializeField] private OperatingMode operatingMode;
     [SerializeField] private float algaeApproachOffset = 0f;
@@ -72,10 +72,18 @@ public class AutoDriver : MonoBehaviour
     [SerializeField] private float coralRetreatSpeed = 0.40f;
     [SerializeField] private float algaeCaptureWindow = 0.6f;
     [SerializeField] private bool processorPoseForTransport = true;
+    [Header("Barge Net Settings")]
+    [SerializeField] private float bargeStandOff = 1.0f;
+    [SerializeField] private float bargeHeadingOffset = 0f;
+    [SerializeField] private float bargePrepTime = 3f;
+    [SerializeField] private float bargeVerifyTime = 1f;
+    private bool nextScoreNet;
+    private int netBefore;
+    private float netDetectedSince = -1f;
     private Vector2 coralRetreatStart, coralOutward;
     private bool lastCoralScoreSuccess;
     private Vector2 algaeInward, algaeCreepStart, algaeRetreatStart;
-    private enum AlgaePhase { Search, Drive, Align, Prepare, Intake, CaptureWait, Retreat, FailedRetreat, FailedStow, ProcessorPrepare, ProcessorDrive, ProcessorAlign, Release, Verify, Done }
+    private enum AlgaePhase { Search, Drive, Align, Prepare, Intake, CaptureWait, Retreat, FailedRetreat, FailedStow, ProcessorPrepare, ProcessorDrive, ProcessorAlign, Release, Verify, NetDrive, NetPrepare, NetRelease, NetVerify, Done }
     private AlgaePhase algaePhase;
     private bool algaeRunning;
     private bool scoringPreloadedCoral;
@@ -304,7 +312,7 @@ public class AutoDriver : MonoBehaviour
 
     private void BeginAutonomy()
     {
-        if (operatingMode == OperatingMode.ReefAlgaeToProcessor)
+        if (operatingMode != OperatingMode.ScoreCoral)
         {
             if (!coralNode.HasPiece()) { BeginAlgae(); return; }
             scoringPreloadedCoral = true;
@@ -2097,6 +2105,7 @@ public class AutoDriver : MonoBehaviour
     private void BeginAlgae()
     {
         algaeRunning = true;
+        nextScoreNet = false;
         algaeNode = robotGamePieceController.GetPieceByName("Algae");
         sharedMatch = FindFirstObjectByType<MatchState>();
         if (sharedMatch != null && sharedMatch.alliance != MapAlliance()) sharedMatch = null;
@@ -2127,6 +2136,7 @@ public class AutoDriver : MonoBehaviour
         drivebase.Stop();
         robot.AutonomousDelayAlgaeHome = false;
         robot.AutonomousLowAlgaeCarry = false;
+        if (nextScoreNet) { DriveNet(); return; }
         ForceRobotState(processorPoseForTransport ? ReefscapeSetpoints.Processor : ReefscapeSetpoints.Stow);
         SetAlgaePhase(AlgaePhase.ProcessorPrepare);
     }
@@ -2149,6 +2159,24 @@ public class AutoDriver : MonoBehaviour
         if (!drivebase.GoTo(algaeGoal, algaeHeading, processorPositionTolerance, processorHeadingTolerance, true)) { StopAlgae("Processor path failed; check exact goal clearance"); return; }
         SetAlgaePhase(AlgaePhase.ProcessorDrive);
     }
+    private void DriveNet()
+    {
+        string regionName = robot.Alliance == Alliance.Blue ? "Blue Barge Scoring Region" : "Red Barge Scoring Region";
+        var region = fieldMap.taskRegions.Find(r => r.type == FieldMap2D.TaskType.Net && r.name == regionName);
+        if (region == null || region.vertices.Count == 0) { StopAlgae("Alliance Net region missing"); return; }
+        Vector2 center = Vector2.zero;
+        foreach (var vertex in region.vertices) center += vertex;
+        center /= region.vertices.Count;
+        float side = robot.Alliance == Alliance.Blue ? 1f : -1f;
+        algaeGoal = center + new Vector2(side * bargeStandOff, 0f);
+        algaeHeading = (side > 0 ? -90f : 90f) + bargeHeadingOffset;
+        ForceRobotState(ReefscapeSetpoints.Stow);
+        sharedMatch.SetCurrentTask(MatchState.RobotTask.ScoreAlgaeNet, regionName);
+        if (!drivebase.GoTo(algaeGoal, algaeHeading, processorPositionTolerance, processorHeadingTolerance, true))
+        { StopAlgae("Net path failed; check stand-off clearance"); return; }
+        SetAlgaePhase(AlgaePhase.NetDrive);
+    }
+
     private bool AlignAlgae()
     {
         Vector2 error = algaeGoal - CurrentPosition();
@@ -2233,7 +2261,7 @@ public class AutoDriver : MonoBehaviour
         { ReselectAlgae($"Timeout in {algaePhase}; position error={Vector2.Distance(CurrentPosition(), algaeGoal):F3} m", true); return; }
         if (algaePhase == AlgaePhase.FailedRetreat && elapsed > algaeTimeout)
         { drivebase.Stop(); SetAlgaePhase(AlgaePhase.Done); sharedMatch.ClearCurrentTask(); Debug.LogWarning("ALGAE: Recovery retreat timeout; mechanism held."); return; }
-        if (elapsed > (algaePhase == AlgaePhase.Drive || algaePhase == AlgaePhase.ProcessorDrive ? 60f : algaeTimeout)) { StopAlgae($"Timeout in {algaePhase}; position error={Vector2.Distance(CurrentPosition(), algaeGoal):F3} m, heading error={Mathf.DeltaAngle(transform.eulerAngles.y, algaeHeading):F2} deg"); return; }
+        if (elapsed > (algaePhase == AlgaePhase.Drive || algaePhase == AlgaePhase.ProcessorDrive || algaePhase == AlgaePhase.NetDrive ? 60f : algaeTimeout)) { StopAlgae($"Timeout in {algaePhase}; position error={Vector2.Distance(CurrentPosition(), algaeGoal):F3} m, heading error={Mathf.DeltaAngle(transform.eulerAngles.y, algaeHeading):F2} deg"); return; }
         switch (algaePhase)
         {
             case AlgaePhase.Search:
@@ -2305,12 +2333,52 @@ public class AutoDriver : MonoBehaviour
                 processorBefore = processor.GetScoredAlgaeCount();
                 if (algaeNode.ReleaseGamePieceWithForce(new Vector3(0, algaeReleaseForce, 0))) SetAlgaePhase(AlgaePhase.Verify);
                 break;
+            case AlgaePhase.NetDrive:
+                if (!algaeNode.HasPiece()) { StopAlgae("Lost Algae on Net approach"); return; }
+                if (!drivebase.IsDriving())
+                {
+                    drivebase.Stop();
+                    CheckFacingReef();
+                    ForceRobotState(ReefscapeSetpoints.Barge);
+                    SetAlgaePhase(AlgaePhase.NetPrepare);
+                }
+                break;
+            case AlgaePhase.NetPrepare:
+                if (!algaeNode.HasPiece()) { StopAlgae("Lost Algae during Net preparation"); return; }
+                if (elapsed >= bargePrepTime && algaeNode.atTarget)
+                {
+                    netBefore = sharedMatch.GetNetAlgaeScored();
+                    netDetectedSince = -1f;
+                    if (robot.TryAutonomousBargePlace()) SetAlgaePhase(AlgaePhase.NetRelease);
+                }
+                break;
+            case AlgaePhase.NetRelease:
+                if (!robot.AutonomousBargePlacing)
+                {
+                    if (algaeNode.HasPiece()) { StopAlgae("Net release failed"); return; }
+                    SetAlgaePhase(AlgaePhase.NetVerify);
+                }
+                break;
+            case AlgaePhase.NetVerify:
+                if (sharedMatch.GetNetAlgaeScored() > netBefore)
+                {
+                    if (netDetectedSince < 0f) netDetectedSince = Time.time;
+                    if (Time.time - netDetectedSince >= bargeVerifyTime) StopAlgae("Net score confirmed; two cycles complete");
+                }
+                else netDetectedSince = -1f;
+                break;
             case AlgaePhase.Verify:
                 if (processor.GetScoredAlgaeCount() > processorBefore)
                 {
                     Debug.Log("ALGAE: Processor count increased");
                     ForceRobotState(ReefscapeSetpoints.Stow);
-                    if (repeatCycles) { failedAlgaeFaces.Clear(); algaeTarget = null; algaeFace = 0; SetAlgaePhase(AlgaePhase.Search); } else StopAlgae("Cycle complete");
+                    if (operatingMode == OperatingMode.ReefAlgaeProcessorThenNet)
+                    {
+                        nextScoreNet = true;
+                        failedAlgaeFaces.Clear(); algaeTarget = null; algaeFace = 0;
+                        SetAlgaePhase(AlgaePhase.Search);
+                    }
+                    else if (repeatCycles) { failedAlgaeFaces.Clear(); algaeTarget = null; algaeFace = 0; SetAlgaePhase(AlgaePhase.Search); } else StopAlgae("Cycle complete");
                 }
                 break;
         }

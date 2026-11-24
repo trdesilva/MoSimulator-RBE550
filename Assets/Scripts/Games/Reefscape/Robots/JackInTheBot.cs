@@ -284,7 +284,7 @@ namespace Games.Reefscape.Robots
                     _coralController.SetTargetState(FacingReef ? coralFrontStowState : coralBackStowState);
                     break;
                 case ReefscapeSetpoints.Barge:
-                    SetSetpoint(bargeSetpoint);
+                    if (!AutonomousBargePlacing) SetSetpoint(bargeSetpoint);
                     break;
                 case ReefscapeSetpoints.RobotSpecial:
                     SetSetpoint(stationCoralIntakeSetpoint);
@@ -341,6 +341,22 @@ namespace Games.Reefscape.Robots
             }
 
             _previousSetpoint = CurrentSetpoint;
+        }
+
+        public bool AutonomousBargePlacing { get; private set; }
+
+        public bool TryAutonomousBargePlace()
+        {
+            if (_isScoring || AutonomousBargePlacing || CurrentSetpoint != ReefscapeSetpoints.Barge || !_algaeController.HasPiece()) return false;
+            AutonomousBargePlacing = true;
+            StartCoroutine(AutonomousBargePlaceRoutine());
+            return true;
+        }
+
+        private IEnumerator AutonomousBargePlaceRoutine()
+        {
+            yield return PlaceGamePiece(ReefscapeSetpoints.Barge, _coralController.GetCurrentState());
+            AutonomousBargePlacing = false;
         }
 
         private IEnumerator PlaceGamePiece(ReefscapeSetpoints lastSetpoint, GamePieceState readState)

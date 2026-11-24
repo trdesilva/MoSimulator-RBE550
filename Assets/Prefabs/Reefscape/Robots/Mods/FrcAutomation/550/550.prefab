@@ -44943,7 +44943,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 911d980bff2e5af4b88ede3a17a72c24, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  operatingMode: 1
+  operatingMode: 2
   algaeApproachOffset: 0
   processorStandOff: 0.65
   algaeTimeout: 30
@@ -44963,10 +44963,15 @@ MonoBehaviour:
   algaeCreepTimeout: 25
   algaeRetreatDistance: 0.2
   algaeRetreatSpeed: 0.4
+  algaeHoldClearance: 0.25
   coralRetreatDistance: 0.3
   coralRetreatSpeed: 0.4
   algaeCaptureWindow: 0.6
   processorPoseForTransport: 1
+  bargeStandOff: 1
+  bargeHeadingOffset: 0
+  bargePrepTime: 3
+  bargeVerifyTime: 1
   coralScoringLevel: 1
   l2ApproachOffset: 0
   l3ApproachOffset: 0
