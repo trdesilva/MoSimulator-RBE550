@@ -44946,7 +44946,7 @@ MonoBehaviour:
   operatingMode: 1
   algaeApproachOffset: 0
   processorStandOff: 0.65
-  algaeTimeout: 12
+  algaeTimeout: 30
   algaeReleaseForce: 2
   algaePositionTolerance: 0.025
   algaeHeadingTolerance: 3
@@ -44954,11 +44954,19 @@ MonoBehaviour:
   processorHeadingTolerance: 3
   algaePrepStandOff: 0.15
   algaePrepTime: 0.75
+  highAlgaePrepStandOff: 0.65
+  highAlgaePrepTime: 3
   algaeCreepSpeed: 0.2
-  algaeCreepDistance: 0.25
-  algaeCreepTimeout: 5
+  highAlgaeFastApproachSpeed: 0.65
+  highAlgaeSlowApproachDistance: 0.25
+  algaeCreepDistance: 0.5
+  algaeCreepTimeout: 25
   algaeRetreatDistance: 0.2
   algaeRetreatSpeed: 0.4
+  coralRetreatDistance: 0.3
+  coralRetreatSpeed: 0.4
+  algaeCaptureWindow: 0.6
+  processorPoseForTransport: 1
   coralScoringLevel: 1
   l2ApproachOffset: 0
   l3ApproachOffset: 0
@@ -44980,7 +44988,7 @@ MonoBehaviour:
   preciseRotationMax: 0.65
   scorePrepSeconds: 1.75
   scoreCheckDelay: 1
-  repeatCycles: 0
+  repeatCycles: 1
 --- !u!114 &-6880834036589320373
 MonoBehaviour:
   m_ObjectHideFlags: 0

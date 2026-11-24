@@ -109,6 +109,8 @@ namespace Games.Reefscape.Robots
         private bool _robotSpectialPressed;
         private bool _stationMode;
         public bool AutonomousReefAlgaeIntake { get; set; }
+        public bool AutonomousLowAlgaeCarry { get; set; }
+        public bool AutonomousDelayAlgaeHome { get; set; }
 
         protected override void Start()
         {
@@ -187,7 +189,7 @@ namespace Games.Reefscape.Robots
 
             if (BaseGameManager.Instance.RobotState == RobotState.Disabled) return;
 
-            _algaeController.SetTargetState(_algaeController.currentStateNum > 0 ? algaeHomeState : algaeStowState);
+            _algaeController.SetTargetState(_algaeController.currentStateNum > 0 && !AutonomousDelayAlgaeHome ? algaeHomeState : algaeStowState);
             CheckStationMode();
             
             if ((_previousSetpoint == ReefscapeSetpoints.RobotSpecial && IntakeAction.IsPressed()) || (_stationMode && IntakeAction.IsPressed() && CurrentSetpoint != ReefscapeSetpoints.HighAlgae && CurrentSetpoint != ReefscapeSetpoints.LowAlgae && CurrentRobotMode != ReefscapeRobotMode.Algae))
@@ -234,7 +236,7 @@ namespace Games.Reefscape.Robots
                 case ReefscapeSetpoints.Stow:
                     if (_coralController.currentStateNum != 0 || _algaeController.currentStateNum != 0)
                     {
-                        SetSetpoint(_coralController.currentStateNum > 0 ? CurrentIntakeMode == ReefscapeIntakeMode.L1 ? l1HighSetpoint : coralStowSetpoint : algaeStowSetpoint);
+                        SetSetpoint(_coralController.currentStateNum > 0 ? CurrentIntakeMode == ReefscapeIntakeMode.L1 ? l1HighSetpoint : coralStowSetpoint : (AutonomousLowAlgaeCarry ? groundAlgaeIntakeSetpoint : algaeStowSetpoint));
                         _coralController.SetTargetState(coralStowState);
                         break;
                     }
