@@ -20,6 +20,10 @@ public class Drivebase : MonoBehaviour
     private float goalHeading;
 
     private bool driving;
+    private float activePositionTolerance;
+    private float activeHeadingTolerance;
+    [SerializeField] private float finalDriveKp = 3f;
+    [SerializeField] private float finalMinimumSpeed = 0.08f;
 
 
     private void Awake()
@@ -39,7 +43,10 @@ public class Drivebase : MonoBehaviour
 
     public bool GoTo(
         Vector2 target,
-        float headingDegrees = 0f)
+        float headingDegrees = 0f,
+        float positionTolerance = -1f,
+        float headingTolerance = 3f,
+        bool requireExactGoal = false)
     {
         if (planner == null || driveController == null)
             return false;
@@ -51,7 +58,7 @@ public class Drivebase : MonoBehaviour
 
         path = planner.Plan(
             start,
-            target
+            target, requireExactGoal: requireExactGoal
         );
 
         if (path == null || path.Count == 0)
@@ -60,7 +67,11 @@ public class Drivebase : MonoBehaviour
             return false;
         }
 
-        goal = target;
+        goal = path[path.Count - 1];
+        activePositionTolerance = positionTolerance > 0f ? positionTolerance : goalTolerance;
+        activeHeadingTolerance = headingTolerance;
+        if (Vector2.Distance(goal, target) > 0.001f)
+            Debug.LogWarning($"Drivebase: goal snapped from {target} to {goal}");
         goalHeading = headingDegrees;
 
         waypointIndex = 0;
@@ -114,7 +125,7 @@ public class Drivebase : MonoBehaviour
 
         if (
             finalWaypoint &&
-            distance < goalTolerance)
+            distance <= activePositionTolerance)
         {
             Finish();
             return;
@@ -128,8 +139,8 @@ public class Drivebase : MonoBehaviour
             speed = Mathf.Min(
                 driveSpeed,
                 Mathf.Max(
-                    0.15f,
-                    distance
+                    finalMinimumSpeed,
+                    distance * finalDriveKp
                 )
             );
         }
@@ -167,7 +178,7 @@ public class Drivebase : MonoBehaviour
                 goalHeading
             );
 
-        if (Mathf.Abs(headingError) > 3f)
+        if (Mathf.Abs(headingError) > activeHeadingTolerance)
         {
             float rotation =
                 -Mathf.Clamp(
@@ -186,6 +197,7 @@ public class Drivebase : MonoBehaviour
         }
 
         Stop();
+        Debug.Log("Drivebase reached destination.");
     }
 
 
@@ -202,7 +214,6 @@ public class Drivebase : MonoBehaviour
             );
         }
 
-        Debug.Log("Drivebase reached destination.");
     }
 
 

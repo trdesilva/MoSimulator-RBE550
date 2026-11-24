@@ -108,6 +108,7 @@ namespace Games.Reefscape.Robots
         [SerializeField] private float targetArmDistance;
         private bool _robotSpectialPressed;
         private bool _stationMode;
+        public bool AutonomousReefAlgaeIntake { get; set; }
 
         protected override void Start()
         {
@@ -157,7 +158,10 @@ namespace Games.Reefscape.Robots
             elevator.SetTarget(targetArmDistance);
 
             var canIntakeCoral = _coralController.currentStateNum == 0 && IntakeAction.IsPressed() && _algaeController.currentStateNum == 0;
-            var canIntakeAlgae = _algaeController.currentStateNum == 0 && IntakeAction.IsPressed() && _coralController.currentStateNum == 0;
+            var canIntakeAlgae = _algaeController.currentStateNum == 0 &&
+                (IntakeAction.IsPressed() || (AutonomousReefAlgaeIntake &&
+                (CurrentSetpoint == ReefscapeSetpoints.LowAlgae || CurrentSetpoint == ReefscapeSetpoints.HighAlgae))) &&
+                _coralController.currentStateNum == 0;
             var realStep = pivotStep;
 
             if (algaeIntake.GamePiece != null)

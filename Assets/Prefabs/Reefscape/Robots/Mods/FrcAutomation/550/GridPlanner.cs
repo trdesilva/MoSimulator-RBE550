@@ -66,7 +66,8 @@ public class GridPlanner : MonoBehaviour
     public List<Vector2> Plan(
         Vector2 start,
         Vector2 goal,
-        IReadOnlyList<Vector2> dynamicObstacles = null)
+        IReadOnlyList<Vector2> dynamicObstacles = null,
+        bool requireExactGoal = false)
     {
         lastPath.Clear();
 
@@ -76,6 +77,16 @@ public class GridPlanner : MonoBehaviour
             return null;
         }
 
+        if (requireExactGoal && IsBlocked(goal, dynamicObstacles))
+        {
+            Debug.LogWarning($"GridPlanner: exact goal {goal} is blocked by clearance.");
+            return null;
+        }
+        if (HasClearPath(start, goal, dynamicObstacles))
+        {
+            lastPath = new List<Vector2> { start, goal };
+            return new List<Vector2>(lastPath);
+        }
         BuildGrid(dynamicObstacles);
 
         Node startNode = FindNearestFreeNode(start);
@@ -95,10 +106,23 @@ public class GridPlanner : MonoBehaviour
             return null;
         }
 
-        path[0] = start;
+        if (HasClearPath(start, path[0], dynamicObstacles))
+            path.Insert(0, start);
+        else if (requireExactGoal)
+        {
+            Debug.LogWarning($"GridPlanner: cannot connect start {start} to free grid.");
+            return null;
+        }
+        else
+            path[0] = start;
 
-        if (!IsBlocked(goal, dynamicObstacles))
-            path[path.Count - 1] = goal;
+        if (HasClearPath(path[path.Count - 1], goal, dynamicObstacles))
+            path.Add(goal);
+        else if (requireExactGoal)
+        {
+            Debug.LogWarning($"GridPlanner: cannot connect grid to exact goal {goal}.");
+            return null;
+        }
 
         lastPath = SmoothPath(
             path,

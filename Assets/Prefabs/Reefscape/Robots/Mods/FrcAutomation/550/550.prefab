@@ -44943,7 +44943,44 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 911d980bff2e5af4b88ede3a17a72c24, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  operatingMode: 1
+  algaeApproachOffset: 0
+  processorStandOff: 0.65
+  algaeTimeout: 12
+  algaeReleaseForce: 2
+  algaePositionTolerance: 0.025
+  algaeHeadingTolerance: 3
+  processorPositionTolerance: 0.05
+  processorHeadingTolerance: 3
+  algaePrepStandOff: 0.15
+  algaePrepTime: 0.75
+  algaeCreepSpeed: 0.2
+  algaeCreepDistance: 0.25
+  algaeCreepTimeout: 5
+  algaeRetreatDistance: 0.2
+  algaeRetreatSpeed: 0.4
+  coralScoringLevel: 1
+  l2ApproachOffset: 0
+  l3ApproachOffset: 0
   perception: {fileID: -6880834036589320373}
+  fieldMap: {fileID: 0}
+  startupDelay: 1
+  pickupStandOff: 0.6
+  pickupClaimDistance: 0.85
+  intakePrepSeconds: 0.65
+  coralReplanDistance: 0.2
+  coralReplanPeriod: 0.35
+  maxLooseCoralHeight: 0.55
+  reefStageDistance: 0.5
+  precisePositionTolerance: 0.025
+  preciseHeadingTolerance: 0.75
+  preciseDriveMax: 0.6
+  preciseDriveKp: 4
+  preciseRotationKp: 0.04
+  preciseRotationMax: 0.65
+  scorePrepSeconds: 1.75
+  scoreCheckDelay: 1
+  repeatCycles: 0
 --- !u!114 &-6880834036589320373
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -45241,63 +45278,63 @@ MonoBehaviour:
     branchSide: 1
     positionXZ: {x: -3.3805, y: -1.2307}
     headingDegrees: -30
-  reefL0ScoringNodes:
-  - name: Blue Reef Face 1 L0
+  reefL1ScoringNodes:
+  - name: Blue Reef Face 1 L1
     alliance: 1
     faceNumber: 1
     positionXZ: {x: 5.8239, y: 0.0050000027}
     headingDegrees: -90
-  - name: Blue Reef Face 2 L0
+  - name: Blue Reef Face 2 L1
     alliance: 1
     faceNumber: 2
     positionXZ: {x: 5.0570498, y: 1.3232}
     headingDegrees: -150
-  - name: Blue Reef Face 3 L0
+  - name: Blue Reef Face 3 L1
     alliance: 1
     faceNumber: 3
     positionXZ: {x: 3.5320501, y: 1.3182}
     headingDegrees: 150
-  - name: Blue Reef Face 4 L0
+  - name: Blue Reef Face 4 L1
     alliance: 1
     faceNumber: 4
     positionXZ: {x: 2.7739, y: -0.0050000027}
     headingDegrees: 90
-  - name: Blue Reef Face 5 L0
+  - name: Blue Reef Face 5 L1
     alliance: 1
     faceNumber: 5
     positionXZ: {x: 3.5407, y: -1.3232}
     headingDegrees: 30
-  - name: Blue Reef Face 6 L0
+  - name: Blue Reef Face 6 L1
     alliance: 1
     faceNumber: 6
     positionXZ: {x: 5.0657, y: -1.3182}
     headingDegrees: -30
-  - name: Red Reef Face 1 L0
+  - name: Red Reef Face 1 L1
     alliance: 0
     faceNumber: 1
     positionXZ: {x: -2.7739, y: 0.0050000027}
     headingDegrees: -90
-  - name: Red Reef Face 2 L0
+  - name: Red Reef Face 2 L1
     alliance: 0
     faceNumber: 2
     positionXZ: {x: -3.5407, y: 1.3232}
     headingDegrees: -150
-  - name: Red Reef Face 3 L0
+  - name: Red Reef Face 3 L1
     alliance: 0
     faceNumber: 3
     positionXZ: {x: -5.0657, y: 1.3182}
     headingDegrees: 150
-  - name: Red Reef Face 4 L0
+  - name: Red Reef Face 4 L1
     alliance: 0
     faceNumber: 4
     positionXZ: {x: -5.8239, y: -0.0050000027}
     headingDegrees: 90
-  - name: Red Reef Face 5 L0
+  - name: Red Reef Face 5 L1
     alliance: 0
     faceNumber: 5
     positionXZ: {x: -5.0570498, y: -1.3232}
     headingDegrees: 30
-  - name: Red Reef Face 6 L0
+  - name: Red Reef Face 6 L1
     alliance: 0
     faceNumber: 6
     positionXZ: {x: -3.5320501, y: -1.3182}
@@ -45333,10 +45370,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   planner: {fileID: 0}
-  driveSpeed: 0.6
+  driveSpeed: 1
   waypointTolerance: 0.25
   goalTolerance: 0.12
-  rotationKp: 0.015
+  rotationKp: 0.03
+  finalDriveKp: 3
+  finalMinimumSpeed: 0.08
 --- !u!1 &4108606758337334964
 GameObject:
   m_ObjectHideFlags: 0
