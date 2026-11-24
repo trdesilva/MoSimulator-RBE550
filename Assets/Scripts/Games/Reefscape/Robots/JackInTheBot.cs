@@ -109,6 +109,7 @@ namespace Games.Reefscape.Robots
         private bool _robotSpectialPressed;
         private bool _stationMode;
         public bool AutonomousReefAlgaeIntake { get; set; }
+        public bool AutonomousGroundAlgaeIntake { get; set; }
         public bool AutonomousLowAlgaeCarry { get; set; }
         public bool AutonomousDelayAlgaeHome { get; set; }
 
@@ -161,7 +162,7 @@ namespace Games.Reefscape.Robots
 
             var canIntakeCoral = _coralController.currentStateNum == 0 && IntakeAction.IsPressed() && _algaeController.currentStateNum == 0;
             var canIntakeAlgae = _algaeController.currentStateNum == 0 &&
-                (IntakeAction.IsPressed() || (AutonomousReefAlgaeIntake &&
+                (IntakeAction.IsPressed() || (AutonomousGroundAlgaeIntake && (CurrentSetpoint == ReefscapeSetpoints.Processor || CurrentSetpoint == ReefscapeSetpoints.Stack)) || (AutonomousReefAlgaeIntake &&
                 (CurrentSetpoint == ReefscapeSetpoints.LowAlgae || CurrentSetpoint == ReefscapeSetpoints.HighAlgae))) &&
                 _coralController.currentStateNum == 0;
             var realStep = pivotStep;
@@ -258,6 +259,7 @@ namespace Games.Reefscape.Robots
                     break;
                 case ReefscapeSetpoints.Processor:
                     SetSetpoint(processorSetpoint);
+                    if (AutonomousGroundAlgaeIntake) _algaeController.RequestIntake(algaeIntake, canIntakeAlgae);
                     break;
                 case ReefscapeSetpoints.Stack:
                     SetSetpoint(stackAlgaeIntakeSetpoint);

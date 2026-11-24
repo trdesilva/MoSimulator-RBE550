@@ -42,11 +42,14 @@ public class AutoDriver : MonoBehaviour
         Done
     }
 
-    private enum OperatingMode { ScoreCoral, ReefAlgaeToProcessor, ReefAlgaeProcessorThenNet }
+    private enum OperatingMode { ScoreCoral, ReefAlgaeToProcessor, ReefAlgaeProcessorThenNet, ElevatedIntakeTest, CombinedAlgaeScoringTest }
     [Header("Algae Settings")]
     [SerializeField] private OperatingMode operatingMode;
     [SerializeField] private float algaeApproachOffset = 0f;
     [SerializeField] private float processorStandOff = 0.65f;
+    [SerializeField] private float processorStagingStandOff = 1.10f;
+    [SerializeField] private float processorFinalApproachSpeed = 0.30f;
+    private Vector2 processorFinalGoal, processorInward;
     [SerializeField] private float algaeTimeout = 12f;
     [SerializeField] private float algaeReleaseForce = 2f;
     [SerializeField] private float algaePositionTolerance = 0.075f;
@@ -78,12 +81,14 @@ public class AutoDriver : MonoBehaviour
     [SerializeField] private float bargePrepTime = 3f;
     [SerializeField] private float bargeVerifyTime = 1f;
     private bool nextScoreNet;
+    private int combinedScores;
+    private bool IsCombinedTestMode => operatingMode == OperatingMode.CombinedAlgaeScoringTest;
     private int netBefore;
     private float netDetectedSince = -1f;
     private Vector2 coralRetreatStart, coralOutward;
     private bool lastCoralScoreSuccess;
     private Vector2 algaeInward, algaeCreepStart, algaeRetreatStart;
-    private enum AlgaePhase { Search, Drive, Align, Prepare, Intake, CaptureWait, Retreat, FailedRetreat, FailedStow, ProcessorPrepare, ProcessorDrive, ProcessorAlign, Release, Verify, NetDrive, NetPrepare, NetRelease, NetVerify, Done }
+    private enum AlgaePhase { Search, Drive, Align, Prepare, Intake, CaptureWait, Retreat, FailedRetreat, FailedStow, ProcessorPrepare, ProcessorDrive, ProcessorAlign, ProcessorStagePrepare, ProcessorApproach, Release, Verify, NetDrive, NetPrepare, NetRelease, NetVerify, Done }
     private AlgaePhase algaePhase;
     private bool algaeRunning;
     private bool scoringPreloadedCoral;
@@ -310,11 +315,117 @@ public class AutoDriver : MonoBehaviour
     }
 
 
+    [Header("Ground Algae Test")]
+    [SerializeField] private float groundPrepDistance = 1.2f;
+    [SerializeField] private float groundFinalDistance = 0.55f;
+    [SerializeField] private float groundPrepTime = 3f;
+    [SerializeField] private float groundApproachSpeed = 0.20f;
+    [SerializeField] private float groundApproachTimeout = 35f;
+    [SerializeField] private float groundMinHeight = 0.35f;
+    [SerializeField] private float groundMaxHeight = 0.85f;
+    private enum GroundPhase { Off, Drive, Prepare, Approach, Retreat, Done }
+    private GroundPhase groundPhase;
+    private float groundSince;
+    private GameObject groundTarget;
+    private Vector2 groundStart;
+    private Vector2 groundDirection;
+    private void GroundTransition(GroundPhase phase)
+    {
+        groundPhase = phase; groundSince = Time.time;
+        Debug.Log("GROUND ALGAE: " + phase);
+    }
+    private void FinishGround(string reason)
+    {
+        drivebase.Stop(); robot.AutonomousGroundAlgaeIntake = false;
+        robot.AutonomousDelayAlgaeHome = false;
+        ForceRobotState(ReefscapeSetpoints.Stow);
+        if (sharedMatch != null) sharedMatch.ClearCurrentTask();
+        GroundTransition(GroundPhase.Done); Debug.Log("GROUND ALGAE: " + reason);
+    }
+    private void BeginGroundTest()
+    {
+        groundTarget = null;
+        algaeRunning = false;
+        sharedMatch = FindFirstObjectByType<MatchState>();
+        if (sharedMatch == null || sharedMatch.alliance != MapAlliance()) { FinishGround("No MatchState for robot alliance"); return; }
+        processor = null;
+        foreach (var scorer in FindObjectsByType<ProcessorScorer>(FindObjectsSortMode.None))
+            if (scorer.Alliance == robot.Alliance) { processor = scorer; break; }
+        if (processor == null) { FinishGround("Alliance Processor not found"); return; }
+        algaeNode = robotGamePieceController.GetPieceByName("Algae");
+        if (algaeNode == null || coralNode.HasPiece() || algaeNode.HasPiece())
+        { FinishGround("Test requires empty robot and Algae controller; disable preloaded Coral."); return; }
+        ForceRobotMode(ReefscapeRobotMode.Algae);
+        ForceRobotState(ReefscapeSetpoints.Stow);
+        float best = float.PositiveInfinity;
+        foreach (var piece in GameObject.FindGameObjectsWithTag("Algae"))
+        {
+            if (piece.GetComponentInParent<RobotBase>() != null) continue;
+            float y = piece.transform.position.y;
+            if (y < groundMinHeight || y > groundMaxHeight) continue;
+            float d = Vector2.Distance(CurrentPosition(), ToXZ(piece.transform.position));
+            if (d < best && d > groundFinalDistance) { best = d; groundTarget = piece; }
+        }
+        if (groundTarget == null) { FinishGround("No elevated Algae found in height range."); return; }
+        groundDirection = (ToXZ(groundTarget.transform.position) - CurrentPosition()).normalized;
+        algaeHeading = HeadingFromDirection(groundDirection);
+        algaeGoal = ToXZ(groundTarget.transform.position) - groundDirection * groundPrepDistance;
+        Debug.Log($"GROUND ALGAE: target {groundTarget.name}, height {groundTarget.transform.position.y:F3} m");
+        if (!drivebase.GoTo(algaeGoal, algaeHeading, algaePositionTolerance, algaeHeadingTolerance, true))
+        { FinishGround("Preparation path failed"); return; }
+        sharedMatch.SetCurrentTask(MatchState.RobotTask.AcquireAlgae, groundTarget.name);
+        GroundTransition(GroundPhase.Drive);
+    }
+    private void UpdateGroundTest()
+    {
+        if (sharedMatch != null && algaeNode != null) sharedMatch.SetCarriedGamePiece(algaeNode.HasPiece() ? MatchState.CarriedGamePiece.Algae : MatchState.CarriedGamePiece.None);
+        float elapsed = Time.time - groundSince;
+        switch (groundPhase)
+        {
+            case GroundPhase.Drive:
+                if (elapsed > 60f) { FinishGround("Navigation timeout"); return; }
+                if (!drivebase.IsDriving())
+                {
+                    if (Vector2.Distance(CurrentPosition(), algaeGoal) > 0.15f) { FinishGround("Preparation goal not reached"); return; }
+                    drivebase.Stop();
+                    ForceRobotState(ReefscapeSetpoints.Stack);
+                    GroundTransition(GroundPhase.Prepare);
+                }
+                break;
+            case GroundPhase.Prepare:
+                if (elapsed >= groundPrepTime)
+                { robot.AutonomousDelayAlgaeHome = true; robot.AutonomousGroundAlgaeIntake = true; groundStart = CurrentPosition(); GroundTransition(GroundPhase.Approach); }
+                break;
+            case GroundPhase.Approach:
+                if (algaeNode.HasPiece())
+                { drivebase.Stop(); robot.AutonomousGroundAlgaeIntake = false; groundStart = CurrentPosition(); GroundTransition(GroundPhase.Retreat); }
+                else if (elapsed > groundApproachTimeout || Vector2.Dot(CurrentPosition()-groundStart, groundDirection) >= Mathf.Max(0f, groundPrepDistance-groundFinalDistance))
+                    FinishGround("Acquisition not confirmed");
+                break;
+            case GroundPhase.Retreat:
+                if (!algaeNode.HasPiece()) { FinishGround("Lost Algae during retreat"); return; }
+                if (Vector2.Dot(groundStart-CurrentPosition(), groundDirection) >= algaeRetreatDistance)
+                {
+                    drivebase.Stop();
+                    robot.AutonomousGroundAlgaeIntake = false;
+                    robot.AutonomousDelayAlgaeHome = false;
+                    groundPhase = GroundPhase.Off;
+                    algaeRunning = true;
+                    Debug.Log("GROUND ALGAE: Acquired; beginning scoring");
+                    BeginProcessorPreparation();
+                }
+                else if (elapsed > 30f) FinishGround("Retreat timeout");
+                break;
+        }
+    }
+
+    private bool IsGroundTestMode => operatingMode == OperatingMode.ElevatedIntakeTest;
+
     private void BeginAutonomy()
     {
         if (operatingMode != OperatingMode.ScoreCoral)
         {
-            if (!coralNode.HasPiece()) { BeginAlgae(); return; }
+            if (!coralNode.HasPiece()) { if (IsGroundTestMode) { nextScoreNet = false; BeginGroundTest(); } else BeginAlgae(); return; }
             scoringPreloadedCoral = true;
             Debug.Log("ALGAE: Scoring preloaded Coral before Algae cycle.");
         }
@@ -360,6 +471,7 @@ public class AutoDriver : MonoBehaviour
 
     private void Update()
     {
+        if (groundPhase != GroundPhase.Off) { UpdateGroundTest(); return; }
         if (algaeRunning) { UpdateAlgae(); return; }
         if (scoringPreloadedCoral && state == AutoState.SearchingCoral)
         {
@@ -373,7 +485,9 @@ public class AutoDriver : MonoBehaviour
             {
                 Debug.LogWarning("ALGAE: Preloaded Coral lost; beginning Algae cycle.");
                 scoringPreloadedCoral = false;
-                BeginAlgae();
+                if (IsGroundTestMode || IsCombinedTestMode)
+                { state = AutoState.Done; Debug.LogWarning("GROUND ALGAE: Coral lost before scoring; test stopped."); }
+                else BeginAlgae();
             }
             return;
         }
@@ -440,6 +554,13 @@ public class AutoDriver : MonoBehaviour
 
     private void FixedUpdate()
     {
+        if (groundPhase != GroundPhase.Off)
+        {
+            if (groundPhase == GroundPhase.Approach) LocalAlgaeDrive(algaeNode.HasPiece() ? Vector2.zero : groundDirection * Mathf.Clamp01(groundApproachSpeed));
+            else if (groundPhase == GroundPhase.Retreat) LocalAlgaeDrive(-groundDirection * algaeRetreatSpeed);
+            else if (groundPhase != GroundPhase.Drive) driveController.overideInput(Vector2.zero, 0f, DriveController.DriveMode.FieldOriented);
+            return;
+        }
         if (!algaeRunning && state == AutoState.CoralRetreat)
         {
             driveController.overideInput(coralOutward * coralRetreatSpeed, 0f, DriveController.DriveMode.FieldOriented);
@@ -463,6 +584,20 @@ public class AutoDriver : MonoBehaviour
             }
             else if (algaePhase == AlgaePhase.Retreat || algaePhase == AlgaePhase.FailedRetreat)
                 LocalAlgaeDrive(Vector2.Dot(algaeRetreatStart - CurrentPosition(), algaeInward) < (algaePhase == AlgaePhase.Retreat ? Mathf.Max(algaeRetreatDistance, algaeHoldClearance) : algaeRetreatDistance) ? -algaeInward * algaeRetreatSpeed : Vector2.zero);
+            else if (algaePhase == AlgaePhase.ProcessorApproach)
+            {
+                Vector2 error = processorFinalGoal - CurrentPosition();
+                float remaining = Vector2.Dot(error, processorInward);
+                float angle = Mathf.Abs(Mathf.DeltaAngle(transform.eulerAngles.y, algaeHeading));
+                Vector2 lateral = error - remaining * processorInward;
+                if (!algaeNode.HasPiece() || remaining <= Mathf.Sqrt(Mathf.Max(0f, processorPositionTolerance * processorPositionTolerance - lateral.sqrMagnitude)) ||
+                    angle > processorHeadingTolerance || lateral.magnitude > processorPositionTolerance)
+                    LocalAlgaeDrive(Vector2.zero);
+                else
+                    LocalAlgaeDrive(processorInward * Mathf.Min(Mathf.Clamp01(processorFinalApproachSpeed), Mathf.Max(0.05f, remaining * preciseDriveKp)));
+            }
+            else if (algaePhase == AlgaePhase.ProcessorStagePrepare)
+                LocalAlgaeDrive(Vector2.zero);
             else if (algaePhase == AlgaePhase.Prepare || algaePhase == AlgaePhase.CaptureWait || algaePhase == AlgaePhase.FailedStow || algaePhase == AlgaePhase.ProcessorPrepare || algaePhase == AlgaePhase.Intake)
                 driveController.overideInput(Vector2.zero, 0f, DriveController.DriveMode.FieldOriented);
             return;
@@ -1660,6 +1795,24 @@ public class AutoDriver : MonoBehaviour
         if (scoringPreloadedCoral)
         {
             scoringPreloadedCoral = false;
+            if (IsCombinedTestMode && (!success || coralNode.HasPiece()))
+            {
+                state = AutoState.Done;
+                Debug.LogWarning("ALGAE: Combined test stopped; initial Coral score not confirmed.");
+                return;
+            }
+            if (IsGroundTestMode)
+            {
+                if (!success || coralNode.HasPiece())
+                {
+                    state = AutoState.Done;
+                    Debug.LogWarning("GROUND ALGAE: Coral score not confirmed or Coral still held; test stopped.");
+                    return;
+                }
+                Debug.Log("GROUND ALGAE: Preloaded Coral scored; beginning ground intake test.");
+                BeginGroundTest();
+                return;
+            }
             Debug.Log(success ? "ALGAE: Preloaded Coral scored; beginning Algae cycle." :
                 "ALGAE: Preloaded Coral released but score not verified; beginning Algae cycle.");
             BeginAlgae();
@@ -2106,6 +2259,7 @@ public class AutoDriver : MonoBehaviour
     {
         algaeRunning = true;
         nextScoreNet = false;
+        combinedScores = 0;
         algaeNode = robotGamePieceController.GetPieceByName("Algae");
         sharedMatch = FindFirstObjectByType<MatchState>();
         if (sharedMatch != null && sharedMatch.alliance != MapAlliance()) sharedMatch = null;
@@ -2131,6 +2285,25 @@ public class AutoDriver : MonoBehaviour
         if (sharedMatch != null) sharedMatch.ClearCurrentTask();
         Debug.LogWarning("ALGAE: " + reason);
     }
+    private void AdvanceCombinedTest(bool scoredNet)
+    {
+        // Count only verified scores, in the required Processor/Net order.
+        if (combinedScores >= 4 || scoredNet != (combinedScores % 2 == 1))
+        { StopAlgae("Combined test: unexpected scoring destination"); return; }
+        combinedScores++;
+        Debug.Log($"ALGAE: Combined test verified {combinedScores}/4 scores");
+        if (combinedScores == 4)
+        { StopAlgae("Combined test complete: two Processor and two Net scores"); return; }
+        nextScoreNet = combinedScores % 2 == 1;
+        drivebase.Stop();
+        ForceRobotState(ReefscapeSetpoints.Stow);
+        if (combinedScores == 1)
+        {
+            failedAlgaeFaces.Clear(); algaeTarget = null; algaeFace = 0;
+            SetAlgaePhase(AlgaePhase.Search);
+        }
+        else BeginGroundTest();
+    }
     private void BeginProcessorPreparation()
     {
         drivebase.Stop();
@@ -2153,7 +2326,9 @@ public class AutoDriver : MonoBehaviour
         }
         if (best == null) { StopAlgae("No Processor map location"); return; }
         float sign = Mathf.Sign(best.positionXZ.y);
-        algaeGoal = best.positionXZ - new Vector2(0, sign * processorStandOff);
+        processorInward = new Vector2(0, sign);
+        processorFinalGoal = best.positionXZ - processorInward * processorStandOff;
+        algaeGoal = best.positionXZ - processorInward * Mathf.Max(processorStagingStandOff, processorStandOff + 0.05f);
         algaeHeading = sign > 0 ? 0 : 180;
         if (sharedMatch != null) sharedMatch.SetCurrentTask(MatchState.RobotTask.ScoreAlgaeProcessor, best.name);
         if (!drivebase.GoTo(algaeGoal, algaeHeading, processorPositionTolerance, processorHeadingTolerance, true)) { StopAlgae("Processor path failed; check exact goal clearance"); return; }
@@ -2229,7 +2404,7 @@ public class AutoDriver : MonoBehaviour
 
     private void OnDisable()
     {
-        if (robot != null) { robot.AutonomousReefAlgaeIntake = false; robot.AutonomousLowAlgaeCarry = false; robot.AutonomousDelayAlgaeHome = false; }
+        if (robot != null) { robot.AutonomousGroundAlgaeIntake = false; robot.AutonomousReefAlgaeIntake = false; robot.AutonomousLowAlgaeCarry = false; robot.AutonomousDelayAlgaeHome = false; }
         if (drivebase != null) drivebase.Stop();
     }
 
@@ -2324,9 +2499,39 @@ public class AutoDriver : MonoBehaviour
                 if (elapsed >= scorePrepSeconds && algaeNode.atTarget) DriveProcessor(); break;
             case AlgaePhase.ProcessorDrive:
                 if (!algaeNode.HasPiece()) { StopAlgae("Lost Algae"); return; }
-                if (!drivebase.IsDriving()) { robot.AutonomousLowAlgaeCarry = false; ForceRobotState(ReefscapeSetpoints.Processor); SetAlgaePhase(AlgaePhase.Release); } break;
+                if (!drivebase.IsDriving()) { drivebase.Stop(); SetAlgaePhase(AlgaePhase.ProcessorAlign); } break;
             case AlgaePhase.ProcessorAlign:
-                if (AlignAlgae()) { robot.AutonomousLowAlgaeCarry = false; ForceRobotState(ReefscapeSetpoints.Processor); SetAlgaePhase(AlgaePhase.Release); } break;
+                if (!algaeNode.HasPiece()) { StopAlgae("Lost Algae at Processor staging"); return; }
+                if (AlignAlgae())
+                {
+                    drivebase.Stop();
+                    robot.AutonomousLowAlgaeCarry = false;
+                    ForceRobotState(ReefscapeSetpoints.Processor);
+                    SetAlgaePhase(AlgaePhase.ProcessorStagePrepare);
+                }
+                break;
+            case AlgaePhase.ProcessorStagePrepare:
+                if (!algaeNode.HasPiece()) { StopAlgae("Lost Algae during Processor preparation"); return; }
+                if (elapsed >= scorePrepSeconds && algaeNode.atTarget)
+                {
+                    algaeGoal = processorFinalGoal;
+                    SetAlgaePhase(AlgaePhase.ProcessorApproach);
+                }
+                break;
+            case AlgaePhase.ProcessorApproach:
+                if (!algaeNode.HasPiece()) { StopAlgae("Lost Algae on final Processor approach"); return; }
+                Vector2 processorError = processorFinalGoal - CurrentPosition();
+                float processorRemaining = Vector2.Dot(processorError, processorInward);
+                float processorLateral = (processorError - processorRemaining * processorInward).magnitude;
+                if (processorLateral > processorPositionTolerance || processorRemaining < -processorPositionTolerance)
+                { StopAlgae("Processor approach drifted outside alignment tolerance"); return; }
+                if (processorError.magnitude <= processorPositionTolerance &&
+                    Mathf.Abs(Mathf.DeltaAngle(transform.eulerAngles.y, algaeHeading)) <= processorHeadingTolerance)
+                {
+                    drivebase.Stop();
+                    SetAlgaePhase(AlgaePhase.Release);
+                }
+                break;
             case AlgaePhase.Release:
                 if (!algaeNode.HasPiece()) { StopAlgae("Lost Algae before release"); return; }
                 if (elapsed < scorePrepSeconds || !algaeNode.atTarget) break;
@@ -2363,7 +2568,11 @@ public class AutoDriver : MonoBehaviour
                 if (sharedMatch.GetNetAlgaeScored() > netBefore)
                 {
                     if (netDetectedSince < 0f) netDetectedSince = Time.time;
-                    if (Time.time - netDetectedSince >= bargeVerifyTime) StopAlgae("Net score confirmed; two cycles complete");
+                    if (Time.time - netDetectedSince >= bargeVerifyTime)
+                    {
+                        if (IsCombinedTestMode) AdvanceCombinedTest(true);
+                        else StopAlgae("Net score confirmed; two cycles complete");
+                    }
                 }
                 else netDetectedSince = -1f;
                 break;
@@ -2372,7 +2581,13 @@ public class AutoDriver : MonoBehaviour
                 {
                     Debug.Log("ALGAE: Processor count increased");
                     ForceRobotState(ReefscapeSetpoints.Stow);
-                    if (operatingMode == OperatingMode.ReefAlgaeProcessorThenNet)
+                    if (IsCombinedTestMode) AdvanceCombinedTest(false);
+                    else if (IsGroundTestMode)
+                    {
+                        nextScoreNet = true;
+                        BeginGroundTest();
+                    }
+                    else if (operatingMode == OperatingMode.ReefAlgaeProcessorThenNet)
                     {
                         nextScoreNet = true;
                         failedAlgaeFaces.Clear(); algaeTarget = null; algaeFace = 0;

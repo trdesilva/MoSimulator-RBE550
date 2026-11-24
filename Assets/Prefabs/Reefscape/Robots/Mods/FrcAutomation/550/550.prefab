@@ -44943,9 +44943,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 911d980bff2e5af4b88ede3a17a72c24, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  operatingMode: 2
+  operatingMode: 4
   algaeApproachOffset: 0
   processorStandOff: 0.65
+  processorStagingStandOff: 1.1
+  processorFinalApproachSpeed: 0.55
   algaeTimeout: 30
   algaeReleaseForce: 2
   algaePositionTolerance: 0.025
@@ -44994,6 +44996,13 @@ MonoBehaviour:
   scorePrepSeconds: 1.75
   scoreCheckDelay: 1
   repeatCycles: 1
+  groundPrepDistance: 1.2
+  groundFinalDistance: 0.55
+  groundPrepTime: 3
+  groundApproachSpeed: 0.55
+  groundApproachTimeout: 35
+  groundMinHeight: 0.35
+  groundMaxHeight: 0.85
 --- !u!114 &-6880834036589320373
 MonoBehaviour:
   m_ObjectHideFlags: 0
