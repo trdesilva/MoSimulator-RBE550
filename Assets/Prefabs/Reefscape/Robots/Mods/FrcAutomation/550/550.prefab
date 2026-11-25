@@ -44943,7 +44943,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 911d980bff2e5af4b88ede3a17a72c24, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  operatingMode: 4
+  operatingMode: 5
   algaeApproachOffset: 0
   processorStandOff: 0.65
   processorStagingStandOff: 1.1
@@ -45003,6 +45003,11 @@ MonoBehaviour:
   groundApproachTimeout: 35
   groundMinHeight: 0.35
   groundMaxHeight: 0.85
+  floorDropTravel: 1.2
+  floorSettleTime: 3
+  floorMaxHeight: 0.4
+  floorFinalDistance: 0.45
+  floorApproachSpeed: 0.55
 --- !u!114 &-6880834036589320373
 MonoBehaviour:
   m_ObjectHideFlags: 0

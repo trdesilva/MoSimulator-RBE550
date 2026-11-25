@@ -113,6 +113,16 @@ namespace Games.Reefscape.Robots
         public bool AutonomousLowAlgaeCarry { get; set; }
         public bool AutonomousDelayAlgaeHome { get; set; }
 
+        public bool AutonomousGroundIntakeAnglesReady()
+        {
+            return Mathf.Abs(Mathf.DeltaAngle(armJoint.GetSingleAxisAngle(JointAxis.X), -groundAlgaeIntakeSetpoint.armAngle)) <= 5f && Mathf.Abs(Mathf.DeltaAngle(wristJoint.GetSingleAxisAngle(JointAxis.X), -groundAlgaeIntakeSetpoint.wristAngle)) <= 5f;
+        }
+
+        public string AutonomousGroundIntakeDiagnostic()
+        {
+            return $"FLOOR INTAKE: mode={CurrentRobotMode}, pose={CurrentSetpoint}, request={AutonomousGroundAlgaeIntake}, arm={armJoint.GetSingleAxisAngle(JointAxis.X):F1}, wrist={wristJoint.GetSingleAxisAngle(JointAxis.X):F1}, commanded arm={groundAlgaeIntakeSetpoint.armAngle:F1}, wrist={groundAlgaeIntakeSetpoint.wristAngle:F1}, extension target={groundAlgaeIntakeSetpoint.armDistance:F1}, coralState={_coralController.currentStateNum}, algaeState={_algaeController.currentStateNum}";
+        }
+
         protected override void Start()
         {
             base.Start();
@@ -162,7 +172,7 @@ namespace Games.Reefscape.Robots
 
             var canIntakeCoral = _coralController.currentStateNum == 0 && IntakeAction.IsPressed() && _algaeController.currentStateNum == 0;
             var canIntakeAlgae = _algaeController.currentStateNum == 0 &&
-                (IntakeAction.IsPressed() || (AutonomousGroundAlgaeIntake && (CurrentSetpoint == ReefscapeSetpoints.Processor || CurrentSetpoint == ReefscapeSetpoints.Stack)) || (AutonomousReefAlgaeIntake &&
+                (IntakeAction.IsPressed() || (AutonomousGroundAlgaeIntake && (CurrentSetpoint == ReefscapeSetpoints.Processor || CurrentSetpoint == ReefscapeSetpoints.Stack || CurrentSetpoint == ReefscapeSetpoints.Intake)) || (AutonomousReefAlgaeIntake &&
                 (CurrentSetpoint == ReefscapeSetpoints.LowAlgae || CurrentSetpoint == ReefscapeSetpoints.HighAlgae))) &&
                 _coralController.currentStateNum == 0;
             var realStep = pivotStep;
@@ -202,7 +212,7 @@ namespace Games.Reefscape.Robots
             // We only run this if we are NOT in the middle of a scoring coroutine
             if (!_isScoring)
             {
-                bool isIntaking = (CurrentSetpoint == ReefscapeSetpoints.Intake || CurrentSetpoint == ReefscapeSetpoints.RobotSpecial || CurrentSetpoint == ReefscapeSetpoints.Stack) && IntakeAction.IsPressed();
+                bool isIntaking = (CurrentSetpoint == ReefscapeSetpoints.Intake || CurrentSetpoint == ReefscapeSetpoints.RobotSpecial || CurrentSetpoint == ReefscapeSetpoints.Stack) && (IntakeAction.IsPressed() || (AutonomousHoldGroundIntakePose && AutonomousGroundAlgaeIntake && CurrentSetpoint == ReefscapeSetpoints.Intake));
 
                 if (isIntaking)
                 {

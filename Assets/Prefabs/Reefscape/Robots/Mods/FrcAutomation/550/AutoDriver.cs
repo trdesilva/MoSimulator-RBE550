@@ -42,7 +42,7 @@ public class AutoDriver : MonoBehaviour
         Done
     }
 
-    private enum OperatingMode { ScoreCoral, ReefAlgaeToProcessor, ReefAlgaeProcessorThenNet, ElevatedIntakeTest, CombinedAlgaeScoringTest }
+    private enum OperatingMode { ScoreCoral, ReefAlgaeToProcessor, ReefAlgaeProcessorThenNet, ElevatedIntakeTest, CombinedAlgaeScoringTest, FloorIntakeTest }
     [Header("Algae Settings")]
     [SerializeField] private OperatingMode operatingMode;
     [SerializeField] private float algaeApproachOffset = 0f;
@@ -323,7 +323,17 @@ public class AutoDriver : MonoBehaviour
     [SerializeField] private float groundApproachTimeout = 35f;
     [SerializeField] private float groundMinHeight = 0.35f;
     [SerializeField] private float groundMaxHeight = 0.85f;
-    private enum GroundPhase { Off, Drive, Prepare, Approach, Retreat, Done }
+    [Header("Floor Intake Test")]
+    [SerializeField] private float floorDropTravel = 1.2f;
+    [SerializeField] private float floorSettleTime = 2f;
+    [SerializeField] private float floorMaxHeight = 0.34f;
+    [SerializeField] private float floorFinalDistance = 0.45f;
+    [SerializeField] private float floorApproachSpeed = 0.55f;
+    [SerializeField] private float floorDropReverseDistance = 1f;
+    private Vector2 floorDropReverseStart;
+    private Vector2 floorDropForward;
+    private bool IsFloorTest => operatingMode == OperatingMode.FloorIntakeTest;
+    private enum GroundPhase { Off, Drive, Prepare, Approach, Retreat, Done, DropDrive, DropPrepare, DropSettle, DropTurn, DropReverse }
     private GroundPhase groundPhase;
     private float groundSince;
     private GameObject groundTarget;
@@ -333,14 +343,52 @@ public class AutoDriver : MonoBehaviour
     {
         groundPhase = phase; groundSince = Time.time;
         Debug.Log("GROUND ALGAE: " + phase);
+        if (IsFloorTest && (phase == GroundPhase.Prepare || phase == GroundPhase.Approach)) Debug.Log(robot.AutonomousGroundIntakeDiagnostic());
     }
     private void FinishGround(string reason)
     {
         drivebase.Stop(); robot.AutonomousGroundAlgaeIntake = false;
+        robot.AutonomousHoldGroundIntakePose = false;
         robot.AutonomousDelayAlgaeHome = false;
         ForceRobotState(ReefscapeSetpoints.Stow);
         if (sharedMatch != null) sharedMatch.ClearCurrentTask();
         GroundTransition(GroundPhase.Done); Debug.Log("GROUND ALGAE: " + reason);
+    }
+    private void BeginFloorDrop()
+    {
+        drivebase.Stop();
+        robot.AutonomousDelayAlgaeHome = false;
+        robot.AutonomousReefAlgaeIntake = false;
+        algaeRunning = false;
+        ForceRobotState(ReefscapeSetpoints.Stow);
+        groundTarget = algaeTarget;
+        algaeGoal = CurrentPosition() - algaeInward * floorDropTravel;
+        algaeHeading = HeadingFromDirection(algaeInward);
+        if (!drivebase.GoTo(algaeGoal, algaeHeading, algaePositionTolerance, algaeHeadingTolerance, true))
+        { FinishGround("Floor drop path failed"); return; }
+        GroundTransition(GroundPhase.DropDrive);
+    }
+    private void BeginFloorPickup()
+    {
+        if (algaeNode.HasPiece()) { FinishGround("Invalid test: robot already holding Algae before pickup"); return; }
+        if (groundTarget == null || groundTarget.GetComponentInParent<RobotBase>() != null || groundTarget.transform.position.y > floorMaxHeight)
+        { FinishGround("Released Algae not detected on floor"); return; }
+        Vector2 target = ToXZ(groundTarget.transform.position);
+        float separation = Vector2.Distance(target, CurrentPosition());
+        if (separation < groundPrepDistance) { FinishGround($"Invalid test: floor separation only {separation:F2} m"); return; }
+        Debug.Log($"FLOOR TEST: empty robot confirmed; target separation {separation:F2} m; enabling intake");
+        groundDirection = (target - CurrentPosition()).normalized;
+        if (groundDirection.sqrMagnitude < 0.01f) { FinishGround("Floor target too close to determine heading"); return; }
+        algaeHeading = HeadingFromDirection(groundDirection);
+        algaeGoal = target - groundDirection * groundPrepDistance;
+        ForceRobotMode(ReefscapeRobotMode.Algae);
+        robot.AutonomousHoldGroundIntakePose = true;
+        ForceRobotState(ReefscapeSetpoints.Intake);
+        robot.AutonomousDelayAlgaeHome = true;
+        robot.AutonomousGroundAlgaeIntake = true;
+        if (!drivebase.GoTo(algaeGoal, algaeHeading, algaePositionTolerance, algaeHeadingTolerance, true))
+        { FinishGround("Floor pickup path failed"); return; }
+        GroundTransition(GroundPhase.Drive);
     }
     private void BeginGroundTest()
     {
@@ -380,26 +428,84 @@ public class AutoDriver : MonoBehaviour
     {
         if (sharedMatch != null && algaeNode != null) sharedMatch.SetCarriedGamePiece(algaeNode.HasPiece() ? MatchState.CarriedGamePiece.Algae : MatchState.CarriedGamePiece.None);
         float elapsed = Time.time - groundSince;
+        if (IsFloorTest && (groundPhase == GroundPhase.Drive || groundPhase == GroundPhase.Prepare || groundPhase == GroundPhase.Approach))
+        {
+            ForceRobotMode(ReefscapeRobotMode.Algae);
+            robot.AutonomousHoldGroundIntakePose = true;
+            if (robot.CurrentSetpoint != ReefscapeSetpoints.Intake) ForceRobotState(ReefscapeSetpoints.Intake);
+            robot.AutonomousGroundAlgaeIntake = !algaeNode.HasPiece();
+        }
         switch (groundPhase)
         {
+            case GroundPhase.DropDrive:
+                if (!algaeNode.HasPiece() || elapsed > 60f) { FinishGround("Drop navigation failed"); return; }
+                if (!drivebase.IsDriving())
+                {
+                    if (Vector2.Distance(CurrentPosition(), algaeGoal) > 0.15f) { FinishGround("Drop goal not reached"); return; }
+                    drivebase.Stop();
+                    algaeHeading = HeadingFromDirection(-algaeInward);
+                    GroundTransition(GroundPhase.DropTurn);
+                }
+                break;
+            case GroundPhase.DropTurn:
+                if (!algaeNode.HasPiece() || elapsed > 20f) { FinishGround("Drop turn failed"); return; }
+                if (Mathf.Abs(Mathf.DeltaAngle(transform.eulerAngles.y, algaeHeading)) <= algaeHeadingTolerance)
+                {
+                    drivebase.Stop(); ForceRobotMode(ReefscapeRobotMode.Algae);
+                    robot.AutonomousHoldGroundIntakePose = true;
+                    ForceRobotState(ReefscapeSetpoints.Intake);
+                    GroundTransition(GroundPhase.DropPrepare);
+                }
+                break;
+            case GroundPhase.DropPrepare:
+                if (!algaeNode.HasPiece() || elapsed > 15f) { FinishGround("Drop preparation failed"); return; }
+                if (elapsed >= groundPrepTime && algaeNode.atTarget && algaeNode.ReleaseGamePieceWithForce(new Vector3(0, 0.5f, 0)))
+                {
+                    robot.AutonomousGroundAlgaeIntake = false;
+                    robot.AutonomousReefAlgaeIntake = false;
+                    floorDropReverseStart = CurrentPosition();
+                    float rad = algaeHeading * Mathf.Deg2Rad;
+                    floorDropForward = new Vector2(Mathf.Sin(rad), Mathf.Cos(rad));
+                    GroundTransition(GroundPhase.DropReverse);
+                }
+                break;
+            case GroundPhase.DropReverse:
+                if (algaeNode.HasPiece()) { FinishGround("Invalid test: Algae still held after release"); return; }
+                if (elapsed > 20f) { FinishGround("Drop reverse timeout"); return; }
+                if (Vector2.Dot(floorDropReverseStart - CurrentPosition(), floorDropForward) >= floorDropReverseDistance)
+                {
+                    drivebase.Stop();
+                    robot.AutonomousHoldGroundIntakePose = false;
+                    robot.AutonomousDelayAlgaeHome = false;
+                    ForceRobotState(ReefscapeSetpoints.Stow);
+                    Debug.Log("FLOOR TEST: reverse complete; robot empty; intake disabled");
+                    GroundTransition(GroundPhase.DropSettle);
+                }
+                break;
+            case GroundPhase.DropSettle:
+                if (elapsed >= floorSettleTime) BeginFloorPickup();
+                break;
             case GroundPhase.Drive:
+                if (IsFloorTest && algaeNode.HasPiece())
+                { drivebase.Stop(); robot.AutonomousGroundAlgaeIntake = false; groundStart = CurrentPosition(); GroundTransition(GroundPhase.Retreat); break; }
                 if (elapsed > 60f) { FinishGround("Navigation timeout"); return; }
                 if (!drivebase.IsDriving())
                 {
                     if (Vector2.Distance(CurrentPosition(), algaeGoal) > 0.15f) { FinishGround("Preparation goal not reached"); return; }
                     drivebase.Stop();
-                    ForceRobotState(ReefscapeSetpoints.Stack);
+                    ForceRobotState(IsFloorTest ? ReefscapeSetpoints.Intake : ReefscapeSetpoints.Stack);
                     GroundTransition(GroundPhase.Prepare);
                 }
                 break;
             case GroundPhase.Prepare:
-                if (elapsed >= groundPrepTime)
+                if (IsFloorTest && elapsed > 15f) { Debug.Log(robot.AutonomousGroundIntakeDiagnostic()); FinishGround("Ground intake joints not ready"); return; }
+                if (elapsed >= groundPrepTime && (!IsFloorTest || robot.AutonomousGroundIntakeAnglesReady()))
                 { robot.AutonomousDelayAlgaeHome = true; robot.AutonomousGroundAlgaeIntake = true; groundStart = CurrentPosition(); GroundTransition(GroundPhase.Approach); }
                 break;
             case GroundPhase.Approach:
                 if (algaeNode.HasPiece())
                 { drivebase.Stop(); robot.AutonomousGroundAlgaeIntake = false; groundStart = CurrentPosition(); GroundTransition(GroundPhase.Retreat); }
-                else if (elapsed > groundApproachTimeout || Vector2.Dot(CurrentPosition()-groundStart, groundDirection) >= Mathf.Max(0f, groundPrepDistance-groundFinalDistance))
+                else if (elapsed > groundApproachTimeout || Vector2.Dot(CurrentPosition()-groundStart, groundDirection) >= Mathf.Max(0f, groundPrepDistance-(IsFloorTest ? floorFinalDistance : groundFinalDistance)))
                     FinishGround("Acquisition not confirmed");
                 break;
             case GroundPhase.Retreat:
@@ -409,6 +515,7 @@ public class AutoDriver : MonoBehaviour
                     drivebase.Stop();
                     robot.AutonomousGroundAlgaeIntake = false;
                     robot.AutonomousDelayAlgaeHome = false;
+                    if (IsFloorTest) { FinishGround("Floor Algae reacquired successfully"); return; }
                     groundPhase = GroundPhase.Off;
                     algaeRunning = true;
                     Debug.Log("GROUND ALGAE: Acquired; beginning scoring");
@@ -556,9 +663,11 @@ public class AutoDriver : MonoBehaviour
     {
         if (groundPhase != GroundPhase.Off)
         {
-            if (groundPhase == GroundPhase.Approach) LocalAlgaeDrive(algaeNode.HasPiece() ? Vector2.zero : groundDirection * Mathf.Clamp01(groundApproachSpeed));
+            if (groundPhase == GroundPhase.Approach) LocalAlgaeDrive(algaeNode.HasPiece() ? Vector2.zero : groundDirection * Mathf.Clamp01(IsFloorTest ? floorApproachSpeed : groundApproachSpeed));
             else if (groundPhase == GroundPhase.Retreat) LocalAlgaeDrive(-groundDirection * algaeRetreatSpeed);
-            else if (groundPhase != GroundPhase.Drive) driveController.overideInput(Vector2.zero, 0f, DriveController.DriveMode.FieldOriented);
+            else if (groundPhase == GroundPhase.DropReverse) LocalAlgaeDrive(-floorDropForward * algaeRetreatSpeed);
+            else if (groundPhase == GroundPhase.DropTurn) LocalAlgaeDrive(Vector2.zero);
+            else if (groundPhase != GroundPhase.Drive && groundPhase != GroundPhase.DropDrive) driveController.overideInput(Vector2.zero, 0f, DriveController.DriveMode.FieldOriented);
             return;
         }
         if (!algaeRunning && state == AutoState.CoralRetreat)
@@ -2492,7 +2601,7 @@ public class AutoDriver : MonoBehaviour
                     Debug.Log("ALGAE: Clearance reached; enabling held position");
                 }
                 if (backedAway >= Mathf.Max(algaeRetreatDistance, algaeHoldClearance))
-                { BeginProcessorPreparation(); }
+                { if (IsFloorTest) BeginFloorDrop(); else BeginProcessorPreparation(); }
                 break;
             case AlgaePhase.ProcessorPrepare:
                 if (!algaeNode.HasPiece()) { StopAlgae("Lost Algae"); return; }

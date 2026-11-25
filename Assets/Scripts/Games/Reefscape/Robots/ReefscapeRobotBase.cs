@@ -31,6 +31,7 @@ namespace Games.Reefscape.Robots
         [field: SerializeField] public ReefscapeSetpoints CurrentSetpoint { get; private set; }
         protected ReefscapeSetpoints LastSetpoint { get; private set; }
         public bool IsIntaking => IntakeAction.IsPressed();
+        public bool AutonomousHoldGroundIntakePose { get; set; }
 
         public ReefscapeRobotMode CurrentRobotMode { get; private set; }
         public ReefscapeIntakeMode CurrentIntakeMode { get; private set; }
@@ -229,7 +230,7 @@ namespace Games.Reefscape.Robots
             else if (
                 (StowAction.IsPressed() &&
                  (CurrentSetpoint != ReefscapeSetpoints.Climb && CurrentSetpoint != ReefscapeSetpoints.Climbed)) ||
-                (CurrentSetpoint == ReefscapeSetpoints.Intake && !IntakeAction.IsPressed()) ||
+                (CurrentSetpoint == ReefscapeSetpoints.Intake && !IntakeAction.IsPressed() && !AutonomousHoldGroundIntakePose) ||
                 (CurrentSetpoint is ReefscapeSetpoints.HighAlgae or ReefscapeSetpoints.LowAlgae
                      or ReefscapeSetpoints.Stack &&
                  !IntakeAction.IsPressed() && RobotGamePieceController.GetPieceByName("Algae").currentStateNum > 0) &&
