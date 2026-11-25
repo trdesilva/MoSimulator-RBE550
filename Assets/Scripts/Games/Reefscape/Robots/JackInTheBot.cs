@@ -112,6 +112,34 @@ namespace Games.Reefscape.Robots
         public bool AutonomousGroundAlgaeIntake { get; set; }
         public bool AutonomousLowAlgaeCarry { get; set; }
         public bool AutonomousDelayAlgaeHome { get; set; }
+        private bool reefPoseLocked, reefWristRamping;
+        private float lockedArm, lockedWrist, lockedExtension, appliedWrist, appliedArm, appliedExtension;
+        public void LockReefIntakePose()
+        {
+            if (reefPoseLocked) return;
+            lockedArm = targetArmAngle;
+            lockedWrist = targetWristAngle;
+            lockedExtension = targetArmDistance;
+            reefPoseLocked = true;
+            reefWristRamping = false;
+        }
+        public void ReleaseReefIntakePose()
+        {
+            if (!reefPoseLocked) return;
+            appliedWrist = lockedWrist;
+            appliedArm = lockedArm;
+            appliedExtension = lockedExtension;
+            reefPoseLocked = false;
+            reefWristRamping = true;
+        }
+        public bool ReefCarryWristReady => !reefWristRamping && AutonomousMechanismAnglesReady();
+        public bool AutonomousMechanismAnglesReady() =>
+            Mathf.Abs(Mathf.DeltaAngle(armJoint.GetSingleAxisAngle(JointAxis.X), -targetArmAngle)) <= 5f &&
+            Mathf.Abs(Mathf.DeltaAngle(wristJoint.GetSingleAxisAngle(JointAxis.X), -targetWristAngle)) <= 5f;
+        public void CancelReefPoseLock() { reefPoseLocked = false; reefWristRamping = false; }
+        [SerializeField] private float reefCarryWristDegreesPerSecond = 45f;
+        [SerializeField] private float reefCarryArmDegreesPerSecond = 30f;
+        [SerializeField] private float reefCarryExtensionInchesPerSecond = 8f;
 
         public bool AutonomousGroundIntakeAnglesReady()
         {
@@ -166,9 +194,18 @@ namespace Games.Reefscape.Robots
 
         private void FixedUpdate()
         {
-            armJoint.SetTargetAngle(targetArmAngle).withAxis(JointAxis.X).flipDirection();
-            wristJoint.SetTargetAngle(targetWristAngle).withAxis(JointAxis.X).flipDirection().noWrap(-30);
-            elevator.SetTarget(targetArmDistance);
+            if (reefWristRamping)
+            {
+                appliedWrist = Mathf.MoveTowardsAngle(appliedWrist, targetWristAngle, Mathf.Max(1f, reefCarryWristDegreesPerSecond) * Time.fixedDeltaTime);
+                appliedArm = Mathf.MoveTowardsAngle(appliedArm, targetArmAngle, Mathf.Max(1f, reefCarryArmDegreesPerSecond) * Time.fixedDeltaTime);
+                appliedExtension = Mathf.MoveTowards(appliedExtension, targetArmDistance, Mathf.Max(0.1f, reefCarryExtensionInchesPerSecond) * Time.fixedDeltaTime);
+                if (Mathf.Abs(Mathf.DeltaAngle(appliedWrist, targetWristAngle)) < 0.01f &&
+                    Mathf.Abs(Mathf.DeltaAngle(appliedArm, targetArmAngle)) < 0.01f &&
+                    Mathf.Abs(appliedExtension - targetArmDistance) < 0.01f) reefWristRamping = false;
+            }
+            armJoint.SetTargetAngle(reefPoseLocked ? lockedArm : reefWristRamping ? appliedArm : targetArmAngle).withAxis(JointAxis.X).flipDirection();
+            wristJoint.SetTargetAngle(reefPoseLocked ? lockedWrist : reefWristRamping ? appliedWrist : targetWristAngle).withAxis(JointAxis.X).flipDirection().noWrap(-30);
+            elevator.SetTarget(reefPoseLocked ? lockedExtension : reefWristRamping ? appliedExtension : targetArmDistance);
 
             var canIntakeCoral = _coralController.currentStateNum == 0 && IntakeAction.IsPressed() && _algaeController.currentStateNum == 0;
             var canIntakeAlgae = _algaeController.currentStateNum == 0 &&

@@ -44603,6 +44603,9 @@ MonoBehaviour:
   targetArmAngle: 0
   targetWristAngle: 0
   targetArmDistance: 0
+  reefCarryWristDegreesPerSecond: 45
+  reefCarryArmDegreesPerSecond: 30
+  reefCarryExtensionInchesPerSecond: 8
 --- !u!114 &8296451281207985909
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -44943,7 +44946,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 911d980bff2e5af4b88ede3a17a72c24, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  operatingMode: 5
+  operatingMode: 7
   algaeApproachOffset: 0
   processorStandOff: 0.65
   processorStagingStandOff: 1.1
@@ -44974,9 +44977,15 @@ MonoBehaviour:
   bargeHeadingOffset: 0
   bargePrepTime: 3
   bargeVerifyTime: 1
+  targetReefFace: 6
+  targetBranchSide: 1
+  targetCoralLevel: 1
+  reefRetryCooldown: 5
+  reefCoralTaskTimeout: 90
+  reefProgressInterval: 10
   coralScoringLevel: 1
-  l2ApproachOffset: 0
-  l3ApproachOffset: 0
+  l2ApproachOffset: -0.03
+  l3ApproachOffset: -0.03
   perception: {fileID: -6880834036589320373}
   fieldMap: {fileID: 0}
   startupDelay: 1
@@ -44988,6 +44997,7 @@ MonoBehaviour:
   maxLooseCoralHeight: 0.55
   reefStageDistance: 0.5
   precisePositionTolerance: 0.025
+  lowerCoralPositionTolerance: 0.01
   preciseHeadingTolerance: 0.75
   preciseDriveMax: 0.6
   preciseDriveKp: 4
@@ -45008,6 +45018,7 @@ MonoBehaviour:
   floorMaxHeight: 0.4
   floorFinalDistance: 0.45
   floorApproachSpeed: 0.55
+  floorDropReverseDistance: 1
 --- !u!114 &-6880834036589320373
 MonoBehaviour:
   m_ObjectHideFlags: 0

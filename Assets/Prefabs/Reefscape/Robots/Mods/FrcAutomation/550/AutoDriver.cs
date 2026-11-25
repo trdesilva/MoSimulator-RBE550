@@ -42,7 +42,7 @@ public class AutoDriver : MonoBehaviour
         Done
     }
 
-    private enum OperatingMode { ScoreCoral, ReefAlgaeToProcessor, ReefAlgaeProcessorThenNet, ElevatedIntakeTest, CombinedAlgaeScoringTest, FloorIntakeTest }
+    private enum OperatingMode { ScoreCoral, ReefAlgaeToProcessor, ReefAlgaeProcessorThenNet, ElevatedIntakeTest, CombinedAlgaeScoringTest, FloorIntakeTest, ClearAlgaeThenScoreCoral, CompleteReef }
     [Header("Algae Settings")]
     [SerializeField] private OperatingMode operatingMode;
     [SerializeField] private float algaeApproachOffset = 0f;
@@ -88,7 +88,7 @@ public class AutoDriver : MonoBehaviour
     private Vector2 coralRetreatStart, coralOutward;
     private bool lastCoralScoreSuccess;
     private Vector2 algaeInward, algaeCreepStart, algaeRetreatStart;
-    private enum AlgaePhase { Search, Drive, Align, Prepare, Intake, CaptureWait, Retreat, FailedRetreat, FailedStow, ProcessorPrepare, ProcessorDrive, ProcessorAlign, ProcessorStagePrepare, ProcessorApproach, Release, Verify, NetDrive, NetPrepare, NetRelease, NetVerify, Done }
+    private enum AlgaePhase { Search, Drive, Align, Prepare, Intake, CaptureWait, Retreat, ReefCarryTransition, FailedRetreat, FailedStow, ProcessorPrepare, ProcessorDrive, ProcessorAlign, ProcessorStagePrepare, ProcessorApproach, Release, Verify, NetDrive, NetPrepare, NetRelease, NetVerify, Done, VerifyClear }
     private AlgaePhase algaePhase;
     private bool algaeRunning;
     private bool scoringPreloadedCoral;
@@ -105,12 +105,185 @@ public class AutoDriver : MonoBehaviour
     private MatchState sharedMatch;
     private enum CoralLevel { L2, L3, L4 }
 
+    [Header("Clear Algae Then Score Coral")]
+    [SerializeField, Range(1, 6)] private int targetReefFace = 3;
+    [SerializeField] private FieldMap2D.ReefBranchSide targetBranchSide = FieldMap2D.ReefBranchSide.Right;
+    [SerializeField] private CoralLevel targetCoralLevel = CoralLevel.L3;
+    private ReefTarget clearTarget;
+    private bool clearPreload;
+    private float clearStarted;
+    private bool IsClearTest => operatingMode == OperatingMode.ClearAlgaeThenScoreCoral;
+
+    [Header("Complete Reef Planner")]
+    [SerializeField] private float reefRetryCooldown = 5f;
+    [SerializeField] private float reefCoralTaskTimeout = 90f;
+    [SerializeField] private float reefProgressInterval = 10f;
+    private bool IsCompleteReef => operatingMode == OperatingMode.CompleteReef;
+    private bool reefActive, reefFinished, reefClockSeen, reefFloorRecovery;
+    private float reefStarted, reefNextPlan, reefNextProgress, reefTaskStarted;
+    private int reefFaceGoal, reefCoralAttempts, reefCoralMisses, reefAlgaeAttempts,
+        reefAlgaeFailures, reefProcessorFailures, reefOtherFailures, reefRetries;
+    private string reefTaskKey, reefLogPath;
+    private readonly Dictionary<string,float> reefCooldowns = new Dictionary<string,float>();
+    private readonly Dictionary<int,GameObject> reefOriginalAlgae = new Dictionary<int,GameObject>();
+    private readonly HashSet<int> reefProcessed = new HashSet<int>();
+    private readonly Dictionary<ReefTarget,bool> reefPreviousOccupancy = new Dictionary<ReefTarget,bool>();
+    private string BranchKey(ReefTarget t) => t.node.name + " " + t.level;
+    private bool ReefReady(string key) => !reefCooldowns.TryGetValue(key, out float until) || Time.time >= until;
+    private bool ReefOccupied(ReefTarget t)
+    {
+        if (sharedMatch == null || sharedMatch.alliance != MapAlliance()) return IsBranchOccupied(t);
+        var slot = sharedMatch.GetReefSlot(t.node.faceNumber,
+            t.node.branchSide == FieldMap2D.ReefBranchSide.Left ? MatchState.ReefScoringTarget.Left : MatchState.ReefScoringTarget.Right,
+            (MatchState.ReefLevel)Enum.Parse(typeof(MatchState.ReefLevel), t.level.ToString()));
+        return slot != null ? slot.occupied : IsBranchOccupied(t);
+    }
+    private void ReefEvent(string kind, string detail)
+    {
+        string line = $"REEF PLAN: {kind}: {detail} | coral attempts={reefCoralAttempts}, misses={reefCoralMisses}, algae attempts={reefAlgaeAttempts}, intake failures={reefAlgaeFailures}, processor failures={reefProcessorFailures}, other failures={reefOtherFailures}, retries={reefRetries}";
+        Debug.Log(line);
+        if (string.IsNullOrEmpty(reefLogPath)) return;
+        try { System.IO.File.AppendAllText(reefLogPath, $"{Time.time-reefStarted:F2},\"{kind}\",\"{detail.Replace("\"", "\"\"")}\",{reefCoralAttempts},{reefCoralMisses},{reefAlgaeAttempts},{reefAlgaeFailures},{reefProcessorFailures},{reefOtherFailures},{reefRetries}\n"); }
+        catch (Exception e) { Debug.LogWarning("REEF PLAN: CSV write failed: " + e.Message); reefLogPath = null; }
+    }
+    private void ReefProgress()
+    {
+        int l2=0,l3=0,l4=0;
+        foreach (var t in reefTargets)
+        {
+            bool occupied = ReefOccupied(t);
+            if (reefPreviousOccupancy.TryGetValue(t,out bool old) && old && !occupied) ReefEvent("coral_lost", BranchKey(t));
+            reefPreviousOccupancy[t]=occupied;
+            if (!occupied) continue;
+            if (t.level==CoralLevel.L2) l2++; else if (t.level==CoralLevel.L3) l3++; else l4++;
+        }
+        ReefEvent("progress", $"L2={l2}/12 L3={l3}/12 L4={l4}/12 processed={reefProcessed.Count}/6");
+    }
+    private void BeginCompleteReef()
+    {
+        BuildReefTargets();
+        sharedMatch = FindFirstObjectByType<MatchState>();
+        algaeNode = robotGamePieceController.GetPieceByName("Algae");
+        foreach (var scorer in FindObjectsByType<ProcessorScorer>(FindObjectsSortMode.None))
+            if (scorer.Alliance == robot.Alliance) { processor=scorer; break; }
+        reefStarted=Time.time;
+        reefLogPath=System.IO.Path.Combine(Application.persistentDataPath, "complete_reef_"+DateTime.Now.ToString("yyyyMMdd_HHmmss")+".csv");
+        try { System.IO.File.WriteAllText(reefLogPath,"elapsed_s,event,detail,coral_attempts,coral_misses,algae_attempts,algae_intake_failures,processor_failures,other_failures,retries\n"); }
+        catch(Exception e) { Debug.LogWarning(e.Message); reefLogPath=null; }
+        reefActive=true; state=AutoState.Waiting;
+        ReefEvent("start", "CSV: "+reefLogPath+"; mapped branches="+reefTargets.Count);
+    }
+    private void ReefReplan(string reason, bool failed)
+    {
+        drivebase.Stop();
+        robot.AutonomousReefAlgaeIntake=false;
+        robot.AutonomousGroundAlgaeIntake=false;
+        robot.AutonomousHoldGroundIntakePose=false;
+        robot.AutonomousDelayAlgaeHome=false;
+        robot.AutonomousLowAlgaeCarry=false;
+        robot.CancelReefPoseLock();
+        ForceRobotState(ReefscapeSetpoints.Stow);
+        if (failed) { reefRetries++; if (reefTaskKey!=null) reefCooldowns[reefTaskKey]=Time.time+reefRetryCooldown; }
+        ReefEvent(failed ? "retry" : "task_done", reason);
+        algaeRunning=false; groundPhase=GroundPhase.Off; reefFloorRecovery=false;
+        currentReefTarget=null; targetCoral=null; releasedCoral=null; clearTarget=null;
+        state=AutoState.Waiting; reefNextPlan=Time.time+Mathf.Max(1f,scorePrepSeconds);
+        if (sharedMatch!=null) sharedMatch.ClearCurrentTask();
+    }
+    private void ReefPlan()
+    {
+        if (Time.time<reefNextPlan) return;
+        reefNextPlan=Time.time+1f;
+        if (sharedMatch==null || sharedMatch.alliance!=MapAlliance() || algaeNode==null || processor==null || reefTargets.Count!=36)
+        { ReefEvent("waiting", "Missing alliance state, controller, Processor or 36 mapped branches"); return; }
+        if (!sharedMatch.allianceState.reefAlgaeInitialized) return;
+        if (reefOriginalAlgae.Count==0)
+        {
+            for(int f=1;f<=6;f++) { var face=sharedMatch.GetReefFace(f); if(face!=null && face.algaePresent && face.algaePiece!=null) reefOriginalAlgae[f]=face.algaePiece; }
+            if (reefOriginalAlgae.Count!=6) { reefOriginalAlgae.Clear(); ReefEvent("waiting", "Requires six original Reef Algae at start"); return; }
+        }
+        bool all=true; foreach(var t in reefTargets) if(!ReefOccupied(t)) { all=false; break; }
+        if(all && reefProcessed.Count==6) { ReefProgress(); ReefEvent("complete","All 36 branches occupied and six original Algae processed"); reefFinished=true; state=AutoState.Done; drivebase.Stop(); return; }
+        reefTaskStarted=Time.time;
+        if(algaeNode.HasPiece()) { reefTaskKey="algae "+reefFaceGoal; BeginAlgae(); return; }
+        ReefTarget best=null; float cost=float.PositiveInfinity;
+        foreach(var t in reefTargets)
+        {
+            if(ReefOccupied(t) || (t.level!=CoralLevel.L4 && IsFaceBlocked(t.node)) || !ReefReady(BranchKey(t))) continue;
+            float d=Vector2.Distance(CurrentPosition(),t.positionXZ);
+            if(d<cost) { cost=d; best=t; }
+        }
+        int faceGoal=0; float algaeCost=float.PositiveInfinity;
+        foreach(var n in fieldMap.reefL1ScoringNodes)
+        {
+            if(n.alliance!=MapAlliance() || reefProcessed.Contains(n.faceNumber) || !ReefReady("algae "+n.faceNumber)) continue;
+            var face=sharedMatch.GetReefFace(n.faceNumber);
+            var piece=reefOriginalAlgae[n.faceNumber];
+            if(piece==null) continue;
+            bool onReef=face!=null && face.algaePresent && face.algaePiece==piece;
+            if(!onReef && (piece.GetComponentInParent<RobotBase>()!=null || piece.transform.position.y>floorMaxHeight)) continue;
+            float d=Vector2.Distance(CurrentPosition(),onReef?n.positionXZ:ToXZ(piece.transform.position));
+            if(d<algaeCost) { algaeCost=d; faceGoal=n.faceNumber; }
+        }
+        if(!coralNode.HasPiece() && faceGoal!=0 && (best==null || algaeCost<=cost || FindNearestLooseCoral()==null))
+        {
+            reefFaceGoal=faceGoal; reefTaskKey="algae "+faceGoal;
+            ReefEvent("select",reefTaskKey);
+            var face=sharedMatch.GetReefFace(faceGoal);
+            if(face!=null && face.algaePresent && face.algaePiece==reefOriginalAlgae[faceGoal]) BeginAlgae();
+            else { reefFloorRecovery=true; groundTarget=reefOriginalAlgae[faceGoal]; algaeTarget=groundTarget; reefAlgaeAttempts++; ReefEvent("algae_intake_attempt","floor recovery "+faceGoal); BeginFloorPickup(); }
+            return;
+        }
+        if(best==null || (!coralNode.HasPiece() && FindNearestLooseCoral()==null)) { ReefEvent("waiting", "No accessible branch or loose Coral; rechecking"); return; }
+        clearTarget=best; reefTaskKey=BranchKey(best); coralScoringLevel=best.level;
+        ReefEvent("select",reefTaskKey);
+        ForceRobotMode(ReefscapeRobotMode.Coral); ForceRobotState(ReefscapeSetpoints.Stow);
+        if(coralNode.HasPiece()) StartDriveToClosestFreeBranch(); else state=AutoState.SearchingCoral;
+    }
+    private void StopClear(string reason)
+    {
+        drivebase.Stop();
+        ForceRobotState(ReefscapeSetpoints.Stow);
+        state = AutoState.Done;
+        if (sharedMatch != null) sharedMatch.ClearCurrentTask();
+        Debug.LogWarning("CLEAR CORAL: " + reason);
+    }
+
+    private void PlanClearTarget()
+    {
+        if (IsBranchOccupied(clearTarget)) { StopClear("Requested branch occupied"); return; }
+        bool blocked = clearTarget.level != CoralLevel.L4 && IsFaceBlocked(clearTarget.node);
+        Debug.Log($"CLEAR CORAL: target {clearTarget.node.name} {clearTarget.level}; blocked={blocked}");
+        if (blocked && coralNode.HasPiece())
+        {
+            clearPreload = true;
+            coralScoringLevel = CoralLevel.L4;
+            StartDriveToClosestFreeBranch();
+            return;
+        }
+        clearPreload = false;
+        if (blocked) { BeginAlgae(); return; }
+        StartClearCoral();
+    }
+
+    private void StartClearCoral()
+    {
+        if (IsBranchOccupied(clearTarget) || (clearTarget.level != CoralLevel.L4 && IsFaceBlocked(clearTarget.node)))
+        { StopClear("Requested branch is not available"); return; }
+        coralScoringLevel = clearTarget.level;
+        ForceRobotMode(ReefscapeRobotMode.Coral);
+        ForceRobotState(ReefscapeSetpoints.Stow);
+        Debug.Log("CLEAR CORAL: branch available; acquiring Coral for original target");
+        if (coralNode.HasPiece()) StartDriveToClosestFreeBranch();
+        else state = AutoState.SearchingCoral;
+    }
+
     [Header("Coral Scoring Settings")]
     [SerializeField] private CoralLevel coralScoringLevel = CoralLevel.L4;
 
     // Optional radial offsets (positive = farther from reef).
-    [SerializeField] private float l2ApproachOffset = 0f;
-    [SerializeField] private float l3ApproachOffset = 0f;
+    [SerializeField] private float l2ApproachOffset = -0.03f;
+    [SerializeField] private float l3ApproachOffset = -0.03f;
 
     // References
 
@@ -146,6 +319,9 @@ public class AutoDriver : MonoBehaviour
 
     [SerializeField]
     private float precisePositionTolerance = 0.025f;
+
+    [SerializeField]
+    private float lowerCoralPositionTolerance = 0.010f;
 
     [SerializeField]
     private float preciseHeadingTolerance = 0.75f;
@@ -347,6 +523,7 @@ public class AutoDriver : MonoBehaviour
     }
     private void FinishGround(string reason)
     {
+        if(IsCompleteReef) { reefAlgaeFailures++; ReefReplan(reason,true); return; }
         drivebase.Stop(); robot.AutonomousGroundAlgaeIntake = false;
         robot.AutonomousHoldGroundIntakePose = false;
         robot.AutonomousDelayAlgaeHome = false;
@@ -375,7 +552,7 @@ public class AutoDriver : MonoBehaviour
         { FinishGround("Released Algae not detected on floor"); return; }
         Vector2 target = ToXZ(groundTarget.transform.position);
         float separation = Vector2.Distance(target, CurrentPosition());
-        if (separation < groundPrepDistance) { FinishGround($"Invalid test: floor separation only {separation:F2} m"); return; }
+        if (!reefFloorRecovery && separation < groundPrepDistance) { FinishGround($"Invalid test: floor separation only {separation:F2} m"); return; }
         Debug.Log($"FLOOR TEST: empty robot confirmed; target separation {separation:F2} m; enabling intake");
         groundDirection = (target - CurrentPosition()).normalized;
         if (groundDirection.sqrMagnitude < 0.01f) { FinishGround("Floor target too close to determine heading"); return; }
@@ -428,7 +605,7 @@ public class AutoDriver : MonoBehaviour
     {
         if (sharedMatch != null && algaeNode != null) sharedMatch.SetCarriedGamePiece(algaeNode.HasPiece() ? MatchState.CarriedGamePiece.Algae : MatchState.CarriedGamePiece.None);
         float elapsed = Time.time - groundSince;
-        if (IsFloorTest && (groundPhase == GroundPhase.Drive || groundPhase == GroundPhase.Prepare || groundPhase == GroundPhase.Approach))
+        if ((IsFloorTest || reefFloorRecovery) && (groundPhase == GroundPhase.Drive || groundPhase == GroundPhase.Prepare || groundPhase == GroundPhase.Approach))
         {
             ForceRobotMode(ReefscapeRobotMode.Algae);
             robot.AutonomousHoldGroundIntakePose = true;
@@ -486,26 +663,26 @@ public class AutoDriver : MonoBehaviour
                 if (elapsed >= floorSettleTime) BeginFloorPickup();
                 break;
             case GroundPhase.Drive:
-                if (IsFloorTest && algaeNode.HasPiece())
+                if ((IsFloorTest || reefFloorRecovery) && algaeNode.HasPiece())
                 { drivebase.Stop(); robot.AutonomousGroundAlgaeIntake = false; groundStart = CurrentPosition(); GroundTransition(GroundPhase.Retreat); break; }
                 if (elapsed > 60f) { FinishGround("Navigation timeout"); return; }
                 if (!drivebase.IsDriving())
                 {
                     if (Vector2.Distance(CurrentPosition(), algaeGoal) > 0.15f) { FinishGround("Preparation goal not reached"); return; }
                     drivebase.Stop();
-                    ForceRobotState(IsFloorTest ? ReefscapeSetpoints.Intake : ReefscapeSetpoints.Stack);
+                    ForceRobotState((IsFloorTest || reefFloorRecovery) ? ReefscapeSetpoints.Intake : ReefscapeSetpoints.Stack);
                     GroundTransition(GroundPhase.Prepare);
                 }
                 break;
             case GroundPhase.Prepare:
-                if (IsFloorTest && elapsed > 15f) { Debug.Log(robot.AutonomousGroundIntakeDiagnostic()); FinishGround("Ground intake joints not ready"); return; }
-                if (elapsed >= groundPrepTime && (!IsFloorTest || robot.AutonomousGroundIntakeAnglesReady()))
+                if ((IsFloorTest || reefFloorRecovery) && elapsed > 15f) { Debug.Log(robot.AutonomousGroundIntakeDiagnostic()); FinishGround("Ground intake joints not ready"); return; }
+                if (elapsed >= groundPrepTime && (!(IsFloorTest || reefFloorRecovery) || robot.AutonomousGroundIntakeAnglesReady()))
                 { robot.AutonomousDelayAlgaeHome = true; robot.AutonomousGroundAlgaeIntake = true; groundStart = CurrentPosition(); GroundTransition(GroundPhase.Approach); }
                 break;
             case GroundPhase.Approach:
                 if (algaeNode.HasPiece())
                 { drivebase.Stop(); robot.AutonomousGroundAlgaeIntake = false; groundStart = CurrentPosition(); GroundTransition(GroundPhase.Retreat); }
-                else if (elapsed > groundApproachTimeout || Vector2.Dot(CurrentPosition()-groundStart, groundDirection) >= Mathf.Max(0f, groundPrepDistance-(IsFloorTest ? floorFinalDistance : groundFinalDistance)))
+                else if (elapsed > groundApproachTimeout || Vector2.Dot(CurrentPosition()-groundStart, groundDirection) >= Mathf.Max(0f, groundPrepDistance-((IsFloorTest || reefFloorRecovery) ? floorFinalDistance : groundFinalDistance)))
                     FinishGround("Acquisition not confirmed");
                 break;
             case GroundPhase.Retreat:
@@ -516,6 +693,7 @@ public class AutoDriver : MonoBehaviour
                     robot.AutonomousGroundAlgaeIntake = false;
                     robot.AutonomousDelayAlgaeHome = false;
                     if (IsFloorTest) { FinishGround("Floor Algae reacquired successfully"); return; }
+                    robot.AutonomousHoldGroundIntakePose=false; reefFloorRecovery=false;
                     groundPhase = GroundPhase.Off;
                     algaeRunning = true;
                     Debug.Log("GROUND ALGAE: Acquired; beginning scoring");
@@ -530,6 +708,16 @@ public class AutoDriver : MonoBehaviour
 
     private void BeginAutonomy()
     {
+        if (IsCompleteReef) { BeginCompleteReef(); return; }
+        if (IsClearTest)
+        {
+            BuildReefTargets();
+            clearTarget = reefTargets.Find(t => t.node.faceNumber == targetReefFace && t.node.branchSide == targetBranchSide && t.level == targetCoralLevel);
+            if (clearTarget == null) { StopClear("Requested branch not mapped"); return; }
+            clearStarted = Time.time;
+            PlanClearTarget();
+            return;
+        }
         if (operatingMode != OperatingMode.ScoreCoral)
         {
             if (!coralNode.HasPiece()) { if (IsGroundTestMode) { nextScoreNet = false; BeginGroundTest(); } else BeginAlgae(); return; }
@@ -578,6 +766,19 @@ public class AutoDriver : MonoBehaviour
 
     private void Update()
     {
+        if (IsCompleteReef && reefActive)
+        {
+            if (reefFinished) return;
+            if(sharedMatch!=null && sharedMatch.matchTimeRemaining>0f) reefClockSeen=true;
+            if(reefClockSeen && sharedMatch.matchTimeRemaining<=0f) { ReefReplan("Match time expired",false); ReefProgress(); reefFinished=true; return; }
+            if(Time.time>=reefNextProgress) { reefNextProgress=Time.time+reefProgressInterval; ReefProgress(); }
+            if(!algaeRunning && groundPhase==GroundPhase.Off)
+            {
+                if(state==AutoState.Waiting) { ReefPlan(); return; }
+                if(state==AutoState.Done || (state==AutoState.SearchingCoral && coralNode.HasPiece()) || Time.time-reefTaskStarted>reefCoralTaskTimeout)
+                { reefOtherFailures++; ReefReplan("Coral task interrupted or timed out: "+state,true); return; }
+            }
+        }
         if (groundPhase != GroundPhase.Off) { UpdateGroundTest(); return; }
         if (algaeRunning) { UpdateAlgae(); return; }
         if (scoringPreloadedCoral && state == AutoState.SearchingCoral)
@@ -597,6 +798,12 @@ public class AutoDriver : MonoBehaviour
                 else BeginAlgae();
             }
             return;
+        }
+        if (IsClearTest && state != AutoState.Done && clearTarget != null)
+        {
+            if (Time.time - clearStarted > 240f) { StopClear("Test timeout"); return; }
+            if (state == AutoState.SearchingCoral && coralNode.HasPiece())
+            { StopClear("Coral held but scoring path failed"); return; }
         }
         switch (state)
         {
@@ -663,7 +870,7 @@ public class AutoDriver : MonoBehaviour
     {
         if (groundPhase != GroundPhase.Off)
         {
-            if (groundPhase == GroundPhase.Approach) LocalAlgaeDrive(algaeNode.HasPiece() ? Vector2.zero : groundDirection * Mathf.Clamp01(IsFloorTest ? floorApproachSpeed : groundApproachSpeed));
+            if (groundPhase == GroundPhase.Approach) LocalAlgaeDrive(algaeNode.HasPiece() ? Vector2.zero : groundDirection * Mathf.Clamp01((IsFloorTest || reefFloorRecovery) ? floorApproachSpeed : groundApproachSpeed));
             else if (groundPhase == GroundPhase.Retreat) LocalAlgaeDrive(-groundDirection * algaeRetreatSpeed);
             else if (groundPhase == GroundPhase.DropReverse) LocalAlgaeDrive(-floorDropForward * algaeRetreatSpeed);
             else if (groundPhase == GroundPhase.DropTurn) LocalAlgaeDrive(Vector2.zero);
@@ -692,7 +899,7 @@ public class AutoDriver : MonoBehaviour
                 else LocalAlgaeDrive(Vector2.zero);
             }
             else if (algaePhase == AlgaePhase.Retreat || algaePhase == AlgaePhase.FailedRetreat)
-                LocalAlgaeDrive(Vector2.Dot(algaeRetreatStart - CurrentPosition(), algaeInward) < (algaePhase == AlgaePhase.Retreat ? Mathf.Max(algaeRetreatDistance, algaeHoldClearance) : algaeRetreatDistance) ? -algaeInward * algaeRetreatSpeed : Vector2.zero);
+                LocalAlgaeDrive(Vector2.Dot(algaeRetreatStart - CurrentPosition(), algaeInward) < (algaePhase == AlgaePhase.Retreat ? Mathf.Max(0.40f, Mathf.Max(algaeRetreatDistance, algaeHoldClearance)) : algaeRetreatDistance) ? -algaeInward * algaeRetreatSpeed : Vector2.zero);
             else if (algaePhase == AlgaePhase.ProcessorApproach)
             {
                 Vector2 error = processorFinalGoal - CurrentPosition();
@@ -747,6 +954,7 @@ public class AutoDriver : MonoBehaviour
 
         if (!PlanToTargetCoral())
         {
+            if(IsCompleteReef) { reefOtherFailures++; ReefReplan("Coral pickup path failed",true); return; }
             targetCoral = null;
 
             return;
@@ -1037,6 +1245,7 @@ public class AutoDriver : MonoBehaviour
                 "AUTODRIVER: failed to claim Coral."
             );
 
+            if(IsCompleteReef) { reefOtherFailures++; ReefReplan("Coral intake claim failed",true); return; }
             targetCoral = null;
 
             state =
@@ -1291,7 +1500,8 @@ public class AutoDriver : MonoBehaviour
 
                 float offset = level == CoralLevel.L2 ? l2ApproachOffset :
                                level == CoralLevel.L3 ? l3ApproachOffset : 0f;
-                Vector2 outward = (node.positionXZ - GetAllianceReefCenter()).normalized;
+                float heading = node.headingDegrees * Mathf.Deg2Rad;
+                Vector2 outward = -new Vector2(Mathf.Sin(heading), Mathf.Cos(heading));
                 reefTargets.Add(new ReefTarget
                 {
                     node = node,
@@ -1350,6 +1560,8 @@ public class AutoDriver : MonoBehaviour
 
     private ReefTarget FindClosestFreeBranch()
     {
+        if ((IsClearTest && !clearPreload) || IsCompleteReef)
+            return clearTarget != null && !IsBranchOccupied(clearTarget) && (clearTarget.level == CoralLevel.L4 || !IsFaceBlocked(clearTarget.node)) ? clearTarget : null;
         ReefTarget best =
             null;
 
@@ -1465,7 +1677,7 @@ public class AutoDriver : MonoBehaviour
         bool started =
             drivebase.GoTo(
                 currentReefTarget.positionXZ,
-                node.headingDegrees, precisePositionTolerance, preciseHeadingTolerance, true
+                node.headingDegrees, CoralPositionTolerance(), preciseHeadingTolerance, true
             );
 
 
@@ -1558,6 +1770,12 @@ public class AutoDriver : MonoBehaviour
 
     // better alignment
 
+    private float CoralPositionTolerance()
+    {
+        return currentReefTarget != null && currentReefTarget.level != CoralLevel.L4
+            ? lowerCoralPositionTolerance : precisePositionTolerance;
+    }
+
     private void ApplyPreciseReefAlignment()
     {
         if (currentReefTarget == null)
@@ -1593,7 +1811,7 @@ public class AutoDriver : MonoBehaviour
 
         bool positionGood =
             distance <=
-            precisePositionTolerance;
+            CoralPositionTolerance();
 
 
         bool headingGood =
@@ -1742,6 +1960,22 @@ public class AutoDriver : MonoBehaviour
             return;
 
 
+        if (currentReefTarget.level != CoralLevel.L4 && !robot.AutonomousMechanismAnglesReady())
+        {
+            if (Time.time - stateStartTime > 10f)
+            {
+                drivebase.Stop();
+                state = AutoState.Done;
+                Debug.LogWarning("AUTODRIVER: Coral scoring angles not ready; release cancelled.");
+            }
+            return;
+        }
+        if (coralNode.controller != null && currentReefTarget.scoringTrigger != null)
+        {
+            Vector3 piece = coralNode.controller.transform.position;
+            Vector3 branch = currentReefTarget.scoringTrigger.transform.TransformPoint(currentReefTarget.scoringTrigger.center);
+            Debug.Log($"CORAL ALIGN: {currentReefTarget.level}, piece={piece:F3}, branch={branch:F3}, world delta={branch-piece:F3}");
+        }
         ReleaseCoral();
     }
 
@@ -1800,6 +2034,7 @@ public class AutoDriver : MonoBehaviour
         }
 
 
+        if(IsCompleteReef) { reefCoralAttempts++; ReefEvent("coral_release",reefTaskKey); }
         Debug.Log(
             $"AUTODRIVER: released Coral at " +
             $"{currentReefTarget.node.name} {currentReefTarget.level}"
@@ -1871,6 +2106,7 @@ public class AutoDriver : MonoBehaviour
         }
 
 
+        if(IsCompleteReef) ReefEvent("coral_initial_check", success ? "occupied" : "not yet confirmed");
         lastCoralScoreSuccess = success;
         float heading = currentReefTarget.node.headingDegrees * Mathf.Deg2Rad;
         coralOutward = -new Vector2(Mathf.Sin(heading), Mathf.Cos(heading));
@@ -1884,6 +2120,27 @@ public class AutoDriver : MonoBehaviour
     private void FinishCoralCycle()
     {
         bool success = lastCoralScoreSuccess;
+        if(IsCompleteReef)
+        {
+            success=IsSpecificCoralInBranch(releasedCoral,currentReefTarget) && !coralNode.HasPiece();
+            if(!success) reefCoralMisses++;
+            ReefEvent(success?"coral_score_success":"coral_score_failed",reefTaskKey);
+            ReefReplan(success?"Coral retained":"Coral missed or fell",!success); return;
+        }
+        if (IsClearTest)
+        {
+            success = IsSpecificCoralInBranch(releasedCoral, currentReefTarget);
+            if (!success || coralNode.HasPiece()) { StopClear("Coral score not retained"); return; }
+            if (clearPreload)
+            {
+                Debug.Log("CLEAR CORAL: preloaded Coral scored; clearing requested face");
+                clearPreload = false;
+                currentReefTarget = null;
+                PlanClearTarget();
+            }
+            else StopClear("SUCCESS: requested Coral branch scored and retained after retreat");
+            return;
+        }
         ForceRobotState(
             ReefscapeSetpoints.Stow
         );
@@ -2386,6 +2643,13 @@ public class AutoDriver : MonoBehaviour
     private void SetAlgaePhase(AlgaePhase phase) { algaePhase = phase; algaeSince = Time.time; Debug.Log("ALGAE: " + phase); }
     private void StopAlgae(string reason)
     {
+        if(IsCompleteReef)
+        {
+            if(algaePhase==AlgaePhase.Release || algaePhase==AlgaePhase.Verify || algaePhase==AlgaePhase.ProcessorApproach || algaePhase==AlgaePhase.ProcessorAlign || algaePhase==AlgaePhase.ProcessorDrive || algaePhase==AlgaePhase.ProcessorPrepare || algaePhase==AlgaePhase.ProcessorStagePrepare) reefProcessorFailures++;
+            else reefOtherFailures++;
+            ReefReplan(reason,true); return;
+        }
+        robot.CancelReefPoseLock();
         robot.AutonomousDelayAlgaeHome = false;
         robot.AutonomousReefAlgaeIntake = false;
         robot.AutonomousLowAlgaeCarry = false;
@@ -2461,6 +2725,18 @@ public class AutoDriver : MonoBehaviour
         SetAlgaePhase(AlgaePhase.NetDrive);
     }
 
+    private bool AlignProcessor()
+    {
+        Vector2 error = algaeGoal - CurrentPosition();
+        float angle = Mathf.DeltaAngle(transform.eulerAngles.y, algaeHeading);
+        bool pos = error.magnitude <= processorPositionTolerance;
+        bool heading = Mathf.Abs(angle) <= processorHeadingTolerance;
+        Vector2 input = pos ? Vector2.zero : error.normalized * Mathf.Clamp(error.magnitude * preciseDriveKp, 0.08f, preciseDriveMax);
+        float rotation = heading ? 0f : -Mathf.Sign(angle) * Mathf.Clamp(Mathf.Abs(angle) * preciseRotationKp, 0.08f, preciseRotationMax);
+        driveController.overideInput(input, rotation, DriveController.DriveMode.FieldOriented);
+        return pos && heading;
+    }
+
     private bool AlignAlgae()
     {
         Vector2 error = algaeGoal - CurrentPosition();
@@ -2472,6 +2748,7 @@ public class AutoDriver : MonoBehaviour
     }
     private void ReselectAlgae(string reason, bool failed)
     {
+        if(IsCompleteReef) { if(algaePhase==AlgaePhase.Intake || algaePhase==AlgaePhase.CaptureWait) reefAlgaeFailures++; else reefOtherFailures++; ReefEvent("algae_failure",reason); }
         robot.AutonomousReefAlgaeIntake = false;
         if (failed && algaeFace > 0) failedAlgaeFaces.Add(algaeFace);
         Debug.LogWarning($"ALGAE: Face {algaeFace}: {reason}; selecting another target.");
@@ -2486,6 +2763,8 @@ public class AutoDriver : MonoBehaviour
     }
     private void FinishFailedAlgae()
     {
+        if(IsCompleteReef) { ReefReplan("Algae acquisition recovery finished",true); return; }
+        robot.CancelReefPoseLock();
         robot.AutonomousDelayAlgaeHome = false;
         ForceRobotState(ReefscapeSetpoints.Stow);
         sharedMatch.ClearCurrentTask();
@@ -2513,7 +2792,8 @@ public class AutoDriver : MonoBehaviour
 
     private void OnDisable()
     {
-        if (robot != null) { robot.AutonomousGroundAlgaeIntake = false; robot.AutonomousReefAlgaeIntake = false; robot.AutonomousLowAlgaeCarry = false; robot.AutonomousDelayAlgaeHome = false; }
+        if (reefActive && !reefFinished) ReefEvent("stopped", "Autonomy disabled");
+        if (robot != null) { robot.CancelReefPoseLock(); robot.AutonomousGroundAlgaeIntake = false; robot.AutonomousReefAlgaeIntake = false; robot.AutonomousLowAlgaeCarry = false; robot.AutonomousDelayAlgaeHome = false; }
         if (drivebase != null) drivebase.Stop();
     }
 
@@ -2527,7 +2807,7 @@ public class AutoDriver : MonoBehaviour
             // Acquisition takes priority over disappearance from the Reef.
             if (algaeNode.HasPiece())
             {
-                drivebase.Stop(); robot.AutonomousReefAlgaeIntake = false;
+                drivebase.Stop(); robot.LockReefIntakePose(); robot.AutonomousReefAlgaeIntake = false;
                 algaeRetreatStart = CurrentPosition();
                 SetAlgaePhase(AlgaePhase.Retreat); return;
             }
@@ -2544,7 +2824,7 @@ public class AutoDriver : MonoBehaviour
         if (acquiring && elapsed > (algaePhase == AlgaePhase.Drive ? 60f : algaeTimeout))
         { ReselectAlgae($"Timeout in {algaePhase}; position error={Vector2.Distance(CurrentPosition(), algaeGoal):F3} m", true); return; }
         if (algaePhase == AlgaePhase.FailedRetreat && elapsed > algaeTimeout)
-        { drivebase.Stop(); SetAlgaePhase(AlgaePhase.Done); sharedMatch.ClearCurrentTask(); Debug.LogWarning("ALGAE: Recovery retreat timeout; mechanism held."); return; }
+        { if(IsCompleteReef) { reefOtherFailures++; ReefReplan("Recovery retreat timeout",true); return; } drivebase.Stop(); SetAlgaePhase(AlgaePhase.Done); sharedMatch.ClearCurrentTask(); Debug.LogWarning("ALGAE: Recovery retreat timeout; mechanism held."); return; }
         if (elapsed > (algaePhase == AlgaePhase.Drive || algaePhase == AlgaePhase.ProcessorDrive || algaePhase == AlgaePhase.NetDrive ? 60f : algaeTimeout)) { StopAlgae($"Timeout in {algaePhase}; position error={Vector2.Distance(CurrentPosition(), algaeGoal):F3} m, heading error={Mathf.DeltaAngle(transform.eulerAngles.y, algaeHeading):F2} deg"); return; }
         switch (algaePhase)
         {
@@ -2555,6 +2835,8 @@ public class AutoDriver : MonoBehaviour
                 foreach (var node in fieldMap.reefL1ScoringNodes)
                 {
                     if (node.alliance != MapAlliance()) continue;
+                    if (IsClearTest && node.faceNumber != clearTarget.node.faceNumber) continue;
+                    if (IsCompleteReef && node.faceNumber != reefFaceGoal) continue;
                     var face = sharedMatch.GetReefFace(node.faceNumber);
                     if (face == null || !face.algaePresent || failedAlgaeFaces.Contains(node.faceNumber)) continue;
                     var piece = face.algaePiece;
@@ -2578,7 +2860,7 @@ public class AutoDriver : MonoBehaviour
             case AlgaePhase.Align:
                 if (AlignAlgae()) { BeginReefIntake(); } break;
             case AlgaePhase.Prepare:
-                if (elapsed >= ActiveAlgaePrepTime) { algaeCreepStart = CurrentPosition(); robot.AutonomousReefAlgaeIntake = true; SetAlgaePhase(AlgaePhase.Intake); } break;
+                if (elapsed >= ActiveAlgaePrepTime) { robot.LockReefIntakePose(); algaeCreepStart = CurrentPosition(); robot.AutonomousReefAlgaeIntake = true; if(IsCompleteReef) { reefAlgaeAttempts++; ReefEvent("algae_intake_attempt",reefTaskKey); } SetAlgaePhase(AlgaePhase.Intake); } break;
             case AlgaePhase.Intake:
                 if (elapsed >= algaeCreepTimeout) ReselectAlgae("Creep ended without capture", true);
                 break;
@@ -2587,7 +2869,7 @@ public class AutoDriver : MonoBehaviour
                 break;
             case AlgaePhase.FailedRetreat:
                 if (Vector2.Dot(algaeRetreatStart - CurrentPosition(), algaeInward) >= algaeRetreatDistance)
-                { drivebase.Stop(); ForceRobotState(ReefscapeSetpoints.Stow); SetAlgaePhase(AlgaePhase.FailedStow); }
+                { drivebase.Stop(); robot.CancelReefPoseLock(); ForceRobotState(ReefscapeSetpoints.Stow); SetAlgaePhase(AlgaePhase.FailedStow); }
                 break;
             case AlgaePhase.FailedStow:
                 if (elapsed >= scorePrepSeconds) FinishFailedAlgae();
@@ -2595,12 +2877,20 @@ public class AutoDriver : MonoBehaviour
             case AlgaePhase.Retreat:
                 if (!algaeNode.HasPiece()) { ReselectAlgae("Lost Algae during retreat", true); return; }
                 float backedAway = Vector2.Dot(algaeRetreatStart - CurrentPosition(), algaeInward);
-                if (robot.AutonomousDelayAlgaeHome && backedAway >= Mathf.Max(0f, algaeHoldClearance))
+                if (backedAway >= Mathf.Max(0.40f, Mathf.Max(algaeRetreatDistance, algaeHoldClearance)))
                 {
+                    drivebase.Stop();
                     robot.AutonomousDelayAlgaeHome = false;
-                    Debug.Log("ALGAE: Clearance reached; enabling held position");
+                    robot.AutonomousLowAlgaeCarry = false;
+                    ForceRobotState(IsFloorTest || nextScoreNet || !processorPoseForTransport ? ReefscapeSetpoints.Stow : ReefscapeSetpoints.Processor);
+                    robot.ReleaseReefIntakePose();
+                    Debug.Log($"ALGAE: {backedAway:F2} m clearance; slowly transitioning arm, wrist and extension");
+                    SetAlgaePhase(AlgaePhase.ReefCarryTransition);
                 }
-                if (backedAway >= Mathf.Max(algaeRetreatDistance, algaeHoldClearance))
+                break;
+            case AlgaePhase.ReefCarryTransition:
+                if (!algaeNode.HasPiece()) { StopAlgae("Lost Algae during carry transition"); return; }
+                if (elapsed >= Mathf.Max(2f, scorePrepSeconds) && robot.ReefCarryWristReady && algaeNode.atTarget)
                 { if (IsFloorTest) BeginFloorDrop(); else BeginProcessorPreparation(); }
                 break;
             case AlgaePhase.ProcessorPrepare:
@@ -2611,8 +2901,9 @@ public class AutoDriver : MonoBehaviour
                 if (!drivebase.IsDriving()) { drivebase.Stop(); SetAlgaePhase(AlgaePhase.ProcessorAlign); } break;
             case AlgaePhase.ProcessorAlign:
                 if (!algaeNode.HasPiece()) { StopAlgae("Lost Algae at Processor staging"); return; }
-                if (AlignAlgae())
+                if (AlignProcessor())
                 {
+                    Debug.Log($"PROCESSOR: aligned in {elapsed:F2}s; position error={Vector2.Distance(CurrentPosition(), algaeGoal):F3} m; heading error={Mathf.DeltaAngle(transform.eulerAngles.y, algaeHeading):F2} deg");
                     drivebase.Stop();
                     robot.AutonomousLowAlgaeCarry = false;
                     ForceRobotState(ReefscapeSetpoints.Processor);
@@ -2644,6 +2935,7 @@ public class AutoDriver : MonoBehaviour
             case AlgaePhase.Release:
                 if (!algaeNode.HasPiece()) { StopAlgae("Lost Algae before release"); return; }
                 if (elapsed < scorePrepSeconds || !algaeNode.atTarget) break;
+                if(IsCompleteReef && algaeNode.controller!=null) algaeTarget=algaeNode.controller.gameObject;
                 processorBefore = processor.GetScoredAlgaeCount();
                 if (algaeNode.ReleaseGamePieceWithForce(new Vector3(0, algaeReleaseForce, 0))) SetAlgaePhase(AlgaePhase.Verify);
                 break;
@@ -2685,12 +2977,28 @@ public class AutoDriver : MonoBehaviour
                 }
                 else netDetectedSince = -1f;
                 break;
+            case AlgaePhase.VerifyClear:
+                if (algaeNode.HasPiece()) { StopAlgae("Clear test: Algae still held"); return; }
+                if (elapsed >= scorePrepSeconds && !IsFaceBlocked(clearTarget.node))
+                {
+                    Debug.Log("CLEAR CORAL: Processor score confirmed; requested face cleared");
+                    algaeRunning = false;
+                    sharedMatch.ClearCurrentTask();
+                    StartClearCoral();
+                }
+                break;
             case AlgaePhase.Verify:
                 if (processor.GetScoredAlgaeCount() > processorBefore)
                 {
                     Debug.Log("ALGAE: Processor count increased");
                     ForceRobotState(ReefscapeSetpoints.Stow);
-                    if (IsCombinedTestMode) AdvanceCombinedTest(false);
+                    if (IsCompleteReef)
+                    {
+                        foreach(var original in reefOriginalAlgae) if(algaeTarget==original.Value) reefProcessed.Add(original.Key);
+                        ReefEvent("processor_score",reefTaskKey); ReefReplan("Processor score confirmed",false);
+                    }
+                    else if (IsClearTest) SetAlgaePhase(AlgaePhase.VerifyClear);
+                    else if (IsCombinedTestMode) AdvanceCombinedTest(false);
                     else if (IsGroundTestMode)
                     {
                         nextScoreNet = true;
