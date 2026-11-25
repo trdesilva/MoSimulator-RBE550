@@ -129,6 +129,20 @@ public class AutoDriver : MonoBehaviour
     private readonly HashSet<int> reefProcessed = new HashSet<int>();
     private readonly Dictionary<ReefTarget,bool> reefPreviousOccupancy = new Dictionary<ReefTarget,bool>();
     private string BranchKey(ReefTarget t) => t.node.name + " " + t.level;
+    private readonly Dictionary<string,int> reefBranchMisses = new Dictionary<string,int>();
+    private static readonly float[] reefRetryOffsets = { 0f, -0.02f, 0.02f, -0.04f, 0.04f };
+    private float ActiveRetryOffset(ReefTarget t)
+    {
+        if (!IsCompleteReef || t == null) return 0f;
+        reefBranchMisses.TryGetValue(BranchKey(t), out int misses);
+        return reefRetryOffsets[misses % reefRetryOffsets.Length];
+    }
+    private Vector2 ActiveCoralPosition(ReefTarget t)
+    {
+        float heading = t.node.headingDegrees * Mathf.Deg2Rad;
+        Vector2 outward = -new Vector2(Mathf.Sin(heading), Mathf.Cos(heading));
+        return t.positionXZ + outward * ActiveRetryOffset(t);
+    }
     private bool ReefReady(string key) => !reefCooldowns.TryGetValue(key, out float until) || Time.time >= until;
     private bool ReefOccupied(ReefTarget t)
     {
@@ -166,6 +180,7 @@ public class AutoDriver : MonoBehaviour
         algaeNode = robotGamePieceController.GetPieceByName("Algae");
         foreach (var scorer in FindObjectsByType<ProcessorScorer>(FindObjectsSortMode.None))
             if (scorer.Alliance == robot.Alliance) { processor=scorer; break; }
+        reefBranchMisses.Clear();
         reefStarted=Time.time;
         reefLogPath=System.IO.Path.Combine(Application.persistentDataPath, "complete_reef_"+DateTime.Now.ToString("yyyyMMdd_HHmmss")+".csv");
         try { System.IO.File.WriteAllText(reefLogPath,"elapsed_s,event,detail,coral_attempts,coral_misses,algae_attempts,algae_intake_failures,processor_failures,other_failures,retries\n"); }
@@ -1653,13 +1668,13 @@ public class AutoDriver : MonoBehaviour
 
         Vector2 outward =
             (
-                currentReefTarget.positionXZ -
+                ActiveCoralPosition(currentReefTarget) -
                 reefCenter
             ).normalized;
 
 
         reefStagePosition =
-            currentReefTarget.positionXZ +
+            ActiveCoralPosition(currentReefTarget) +
             outward *
             reefStageDistance;
 
@@ -1674,9 +1689,11 @@ public class AutoDriver : MonoBehaviour
         );
 
 
+        if (IsCompleteReef)
+            ReefEvent("coral_retry_offset", $"{BranchKey(currentReefTarget)}; offset_m={ActiveRetryOffset(currentReefTarget):F3}");
         bool started =
             drivebase.GoTo(
-                currentReefTarget.positionXZ,
+                ActiveCoralPosition(currentReefTarget),
                 node.headingDegrees, CoralPositionTolerance(), preciseHeadingTolerance, true
             );
 
@@ -1688,6 +1705,15 @@ public class AutoDriver : MonoBehaviour
                 "to exact Reef scoring pose."
             );
 
+            if (IsCompleteReef)
+            {
+                string key = BranchKey(currentReefTarget);
+                reefBranchMisses.TryGetValue(key, out int misses);
+                reefBranchMisses[key] = misses + 1;
+                reefOtherFailures++;
+                ReefReplan("Exact Coral scoring pose unreachable; advancing retry offset", true);
+                return;
+            }
             state =
                 AutoState.SearchingCoral;
 
@@ -1727,7 +1753,7 @@ public class AutoDriver : MonoBehaviour
 
         bool started =
             drivebase.GoTo(
-                currentReefTarget.positionXZ,
+                ActiveCoralPosition(currentReefTarget),
                 node.headingDegrees
             );
 
@@ -1772,8 +1798,7 @@ public class AutoDriver : MonoBehaviour
 
     private float CoralPositionTolerance()
     {
-        return currentReefTarget != null && currentReefTarget.level != CoralLevel.L4
-            ? lowerCoralPositionTolerance : precisePositionTolerance;
+        return lowerCoralPositionTolerance;
     }
 
     private void ApplyPreciseReefAlignment()
@@ -1783,8 +1808,7 @@ public class AutoDriver : MonoBehaviour
 
 
         Vector2 target =
-            currentReefTarget
-            .positionXZ;
+            ActiveCoralPosition(currentReefTarget);
 
 
         Vector2 current =
@@ -1960,13 +1984,14 @@ public class AutoDriver : MonoBehaviour
             return;
 
 
-        if (currentReefTarget.level != CoralLevel.L4 && !robot.AutonomousMechanismAnglesReady())
+        if (!robot.AutonomousMechanismAnglesReady())
         {
             if (Time.time - stateStartTime > 10f)
             {
                 drivebase.Stop();
                 state = AutoState.Done;
-                Debug.LogWarning("AUTODRIVER: Coral scoring angles not ready; release cancelled.");
+                Debug.LogWarning($"AUTODRIVER: {currentReefTarget.level} Coral scoring angles not ready; release cancelled.");
+                if (IsCompleteReef) ReefEvent("coral_readiness_timeout", BranchKey(currentReefTarget));
             }
             return;
         }
@@ -2123,7 +2148,14 @@ public class AutoDriver : MonoBehaviour
         if(IsCompleteReef)
         {
             success=IsSpecificCoralInBranch(releasedCoral,currentReefTarget) && !coralNode.HasPiece();
-            if(!success) reefCoralMisses++;
+            string key = BranchKey(currentReefTarget);
+            if (!success)
+            {
+                reefCoralMisses++;
+                reefBranchMisses.TryGetValue(key, out int misses);
+                reefBranchMisses[key] = misses + 1;
+            }
+            else reefBranchMisses.Remove(key);
             ReefEvent(success?"coral_score_success":"coral_score_failed",reefTaskKey);
             ReefReplan(success?"Coral retained":"Coral missed or fell",!success); return;
         }

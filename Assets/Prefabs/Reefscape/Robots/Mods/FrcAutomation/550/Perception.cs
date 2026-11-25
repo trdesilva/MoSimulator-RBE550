@@ -19,6 +19,16 @@ public class Perception : MonoBehaviour
         private int framesSinceUpdate = 0;
         ReaderWriterLock octreeLock;
 
+        // Generous world-space safety bound, not a field collision boundary.
+        private const float MaxTrackedCoordinate = 100f;
+        private readonly HashSet<int> warnedInvalidObjects = new HashSet<int>();
+
+        private static bool IsValidCoordinate(float value)
+        {
+            return !float.IsNaN(value) && !float.IsInfinity(value)
+                && Mathf.Abs(value) <= MaxTrackedCoordinate;
+        }
+
         /// <param name="tag">tag of GameObjects to track</param>
         /// <param name="updatePeriodFrames">periodicity of updates for this group in frames (0 => no updates, 1 => 
         /// every frame, 2 => every other frame, etc.)</param>
@@ -64,7 +74,23 @@ public class Perception : MonoBehaviour
                 Octree = new PointOctree<GameObject>(5f, new Vector3(), 0.5f);
                 foreach (GameObject g in UpdateCallback())
                 {
-                    Octree.Add(g, g.transform.position);
+                    if (g == null)
+                        continue;
+
+                    Vector3 position = g.transform.position;
+                    int id = g.GetInstanceID();
+                    if (!IsValidCoordinate(position.x) ||
+                        !IsValidCoordinate(position.y) ||
+                        !IsValidCoordinate(position.z))
+                    {
+                        if (warnedInvalidObjects.Add(id))
+                            Debug.LogWarning($"PERCEPTION: Skipping invalid object '{g.name}' (tag={Tag}, id={id}, position=({position.x:R}, {position.y:R}, {position.z:R}), time={Time.time:F2}s)", g);
+                        continue;
+                    }
+
+                    // Allow a new warning if a recovered object becomes invalid again.
+                    warnedInvalidObjects.Remove(id);
+                    Octree.Add(g, position);
                 }
                 framesSinceUpdate = 0;
             }
