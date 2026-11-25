@@ -134,8 +134,8 @@ namespace Games.Reefscape.Robots
         }
         public bool ReefCarryWristReady => !reefWristRamping && AutonomousMechanismAnglesReady();
         public bool AutonomousMechanismAnglesReady() =>
-            Mathf.Abs(Mathf.DeltaAngle(armJoint.GetSingleAxisAngle(JointAxis.X), -targetArmAngle)) <= 5f &&
-            Mathf.Abs(Mathf.DeltaAngle(wristJoint.GetSingleAxisAngle(JointAxis.X), -targetWristAngle)) <= 5f;
+            Mathf.Abs(Mathf.DeltaAngle(armJoint.GetSingleAxisAngle(JointAxis.X), -(reefPoseLocked ? lockedArm : targetArmAngle))) <= 5f &&
+            Mathf.Abs(Mathf.DeltaAngle(wristJoint.GetSingleAxisAngle(JointAxis.X), -(reefPoseLocked ? lockedWrist : targetWristAngle))) <= 5f;
         public void CancelReefPoseLock() { reefPoseLocked = false; reefWristRamping = false; }
         [SerializeField] private float reefCarryWristDegreesPerSecond = 45f;
         [SerializeField] private float reefCarryArmDegreesPerSecond = 30f;
@@ -406,6 +406,56 @@ namespace Games.Reefscape.Robots
         {
             yield return PlaceGamePiece(ReefscapeSetpoints.Barge, _coralController.GetCurrentState());
             AutonomousBargePlacing = false;
+        }
+
+        // Autonomous L1: mirror the native roller outtake while retaining
+        // a configurable release force and synchronous success reporting.
+        public bool TryAutonomousL1Outtake(float force, GameObject coral, Vector3 troughCenter, float ejectionAngle = 8.530766f)
+        {
+            if (_isScoring || (CurrentSetpoint != ReefscapeSetpoints.L1 && !(CurrentSetpoint == ReefscapeSetpoints.Stow && reefPoseLocked)) || !_coralController.HasPiece()) return false;
+            if (coral == null) return false;
+            Rigidbody body = coral.GetComponent<Rigidbody>();
+            if (body == null) body = coral.GetComponentInChildren<Rigidbody>();
+            if (body == null) { Debug.LogWarning("L1 OUTTAKE: Coral rigidbody missing"); return false; }
+            Vector3 direction = troughCenter - body.worldCenterOfMass;
+            direction.y = 0f;
+            if (direction.sqrMagnitude < 0.000001f) return false;
+            float angle = Mathf.Clamp(ejectionAngle, 0f, 45f) * Mathf.Deg2Rad;
+            direction = direction.normalized * Mathf.Cos(angle) + Vector3.down * Mathf.Sin(angle);
+            _isScoring = true;
+            float speed = FacingReef ? wheelIntakeSpeed : -wheelIntakeSpeed;
+            foreach (var wheel in intakeWheels)
+                wheel.VelocityRoller(speed).useAxis(JointAxis.X);
+            if (CurrentIntakeMode != ReefscapeIntakeMode.L1)
+            {
+                leftIntakeRollerJoint.ChangeAngularVelocity(1000);
+                rightIntakeRollerJoint.ChangeAngularVelocity(-1000);
+                topIntakeRoller.flipVelocity();
+            }
+            // Preserve native detachment, but apply the ejection in world space.
+            bool released = _coralController.ReleaseGamePieceWithForce(Vector3.zero);
+            if (released && body != null)
+            {
+                if (!body.isKinematic)
+                {
+                    body.AddForce(direction * force, ForceMode.VelocityChange);
+                    Debug.Log($"L1 OUTTAKE: world direction={direction:F3}, delta_v={force:F2} m/s, angle={ejectionAngle:F2} deg, target={troughCenter:F3}");
+                }
+                else Debug.LogWarning("L1 OUTTAKE: released Coral still kinematic; ejection not applied");
+            }
+            StartCoroutine(FinishAutonomousL1Outtake());
+            return released;
+        }
+
+        private IEnumerator FinishAutonomousL1Outtake()
+        {
+            yield return new WaitForSeconds(0.5f);
+            leftIntakeRollerJoint.ChangeAngularVelocity(0);
+            rightIntakeRollerJoint.ChangeAngularVelocity(0);
+            topIntakeRoller.ChangeAngularVelocity(0);
+            foreach (var wheel in intakeWheels)
+                wheel.VelocityRoller(0).useAxis(JointAxis.X);
+            _isScoring = false;
         }
 
         private IEnumerator PlaceGamePiece(ReefscapeSetpoints lastSetpoint, GamePieceState readState)

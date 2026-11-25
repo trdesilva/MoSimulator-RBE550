@@ -42,7 +42,7 @@ public class AutoDriver : MonoBehaviour
         Done
     }
 
-    private enum OperatingMode { ScoreCoral, ReefAlgaeToProcessor, ReefAlgaeProcessorThenNet, ElevatedIntakeTest, CombinedAlgaeScoringTest, FloorIntakeTest, ClearAlgaeThenScoreCoral, CompleteReef }
+    private enum OperatingMode { ScoreCoral, ReefAlgaeToProcessor, ReefAlgaeProcessorThenNet, ElevatedIntakeTest, CombinedAlgaeScoringTest, FloorIntakeTest, ClearAlgaeThenScoreCoral, CompleteReef, L1Only }
     [Header("Algae Settings")]
     [SerializeField] private OperatingMode operatingMode;
     [SerializeField] private float algaeApproachOffset = 0f;
@@ -103,7 +103,7 @@ public class AutoDriver : MonoBehaviour
     private int processorBefore;
     private RobotGamePieceController<ReefscapeGamePiece, ReefscapeGamePieceData>.GamePieceControllerNode algaeNode;
     private MatchState sharedMatch;
-    private enum CoralLevel { L2, L3, L4 }
+    private enum CoralLevel { L2, L3, L4, L1 }
 
     [Header("Clear Algae Then Score Coral")]
     [SerializeField, Range(1, 6)] private int targetReefFace = 3;
@@ -118,6 +118,77 @@ public class AutoDriver : MonoBehaviour
     [SerializeField] private float reefRetryCooldown = 5f;
     [SerializeField] private float reefCoralTaskTimeout = 90f;
     [SerializeField] private float reefProgressInterval = 10f;
+    [Header("L1 Only Evaluation")]
+    [SerializeField] private float l1ApproachOffset = 0f;
+    [SerializeField] private float l1ReleaseForce = 3f;
+    [SerializeField, Range(0f, 45f)] private float l1EjectionAngle = 15f;
+    [SerializeField] private float l1AttemptTimeout = 120f;
+    private bool IsL1Test => operatingMode == OperatingMode.L1Only;
+    private readonly List<ReefTarget> l1Targets = new List<ReefTarget>();
+    private int l1Face = 1, l1Attempts, l1Successes, l1FaceAttempts;
+    private float l1Started, l1CycleStarted;
+    private string l1LogPath;
+    private bool l1Active, l1Pending;
+    private void L1Log(string kind, string detail)
+    {
+        if (string.IsNullOrEmpty(l1LogPath)) return;
+        string safe = detail.Replace("\"", "\"\"");
+        System.IO.File.AppendAllText(l1LogPath, FormattableString.Invariant($"{Time.time-l1Started:F3},{l1Face},{l1Attempts},{l1Successes},{kind},\"{safe}\"\n"));
+        Debug.Log($"L1 TEST: {kind}: {detail}");
+    }
+    private void StopL1(string reason)
+    {
+        robot.CancelReefPoseLock();
+        L1Log("stop", reason); l1Active = false; drivebase.Stop(); state = AutoState.Done;
+    }
+    private void BeginL1()
+    {
+        BuildReefTargets();
+        l1Started = l1CycleStarted = Time.time;
+        l1LogPath = System.IO.Path.Combine(Application.persistentDataPath, "l1_test_" + DateTime.Now.ToString("yyyyMMdd_HHmmss") + ".csv");
+        System.IO.File.WriteAllText(l1LogPath, "elapsed_s,face,attempts,successes,event,detail\n");
+        Debug.Log("L1 TEST CSV: " + l1LogPath);
+        var field = typeof(Games.Reefscape.Scoring.TroughScorer).GetField("troughTriggers", BindingFlags.Instance | BindingFlags.NonPublic);
+        BoxCollider[] boxes = null;
+        foreach (var scorer in FindObjectsByType<Games.Reefscape.Scoring.TroughScorer>(FindObjectsSortMode.None))
+            if (scorer.Alliance == robot.Alliance) { boxes = field?.GetValue(scorer) as BoxCollider[]; break; }
+        if (boxes == null) { StopL1("Trough triggers unavailable"); return; }
+        var used = new HashSet<BoxCollider>();
+        for (int face = 1; face <= 6; face++)
+        {
+            var n = fieldMap.GetReefL1ScoringNode(MapAlliance(), face);
+            if (n == null) { StopL1("Missing L1 map node"); return; }
+            BoxCollider best = null; float distance = float.PositiveInfinity;
+            foreach (var box in boxes)
+            {
+                if (box == null) continue;
+                float d = Vector2.Distance(n.positionXZ, ToXZ(box.transform.TransformPoint(box.center)));
+                if (d < distance) { distance = d; best = box; }
+            }
+            if (best == null || !used.Add(best)) { StopL1("Trough mapping not unique"); return; }
+            float h = n.headingDegrees * Mathf.Deg2Rad;
+            l1Targets.Add(new ReefTarget { node = new FieldMap2D.ReefScoringNode(n.name,n.alliance,face,FieldMap2D.ReefBranchSide.Left,n.positionXZ,n.headingDegrees), level = CoralLevel.L1, scoringTrigger = best, positionXZ = n.positionXZ - new Vector2(Mathf.Sin(h),Mathf.Cos(h))*l1ApproachOffset });
+        }
+        reefTargets.AddRange(l1Targets); // exclude scored trough Coral from pickup
+        l1Active = true; L1Log("start", "Up to 12 releases; up to two attempts and one retained score per face");
+        if (coralNode.HasPiece()) StartDriveToClosestFreeBranch(); else state = AutoState.SearchingCoral;
+    }
+    private void FinishL1()
+    {
+        bool success = IsSpecificCoralInBranch(releasedCoral,currentReefTarget) && !coralNode.HasPiece();
+        if (success) l1Successes++;
+        L1Log(success ? "success" : "miss", $"initial={lastCoralScoreSuccess}; cycle_s={Time.time-l1CycleStarted:F3}");
+        l1Pending = false;
+        if (success || l1FaceAttempts >= 2)
+        {
+            L1Log("face_complete", $"face_attempts={l1FaceAttempts}; retained={success}");
+            if (l1Face >= 6) { StopL1($"Complete: {l1Successes}/6 faces scored; {l1Attempts} releases"); return; }
+            l1Face++;
+            l1FaceAttempts = 0;
+        }
+        l1CycleStarted = Time.time; targetCoral = null; releasedCoral = null; currentReefTarget = null;
+        if (coralNode.HasPiece()) StartDriveToClosestFreeBranch(); else state = AutoState.SearchingCoral;
+    }
     private bool IsCompleteReef => operatingMode == OperatingMode.CompleteReef;
     private bool reefActive, reefFinished, reefClockSeen, reefFloorRecovery;
     private float reefStarted, reefNextPlan, reefNextProgress, reefTaskStarted;
@@ -723,6 +794,7 @@ public class AutoDriver : MonoBehaviour
 
     private void BeginAutonomy()
     {
+        if (IsL1Test) { BeginL1(); return; }
         if (IsCompleteReef) { BeginCompleteReef(); return; }
         if (IsClearTest)
         {
@@ -781,6 +853,7 @@ public class AutoDriver : MonoBehaviour
 
     private void Update()
     {
+        if (IsL1Test && l1Active && (state == AutoState.Done || Time.time-l1CycleStarted > l1AttemptTimeout)) { StopL1("Incomplete: task timeout or interruption; pending release="+l1Pending); return; }
         if (IsCompleteReef && reefActive)
         {
             if (reefFinished) return;
@@ -868,7 +941,9 @@ public class AutoDriver : MonoBehaviour
             case AutoState.CoralRetreat:
                 if (Vector2.Dot(CurrentPosition() - coralRetreatStart, coralOutward) >= coralRetreatDistance)
                 {
-                    drivebase.Stop(); ForceRobotState(ReefscapeSetpoints.Stow);
+                    drivebase.Stop();
+                    if (IsL1Test) robot.ReleaseReefIntakePose();
+                    ForceRobotState(ReefscapeSetpoints.Stow);
                     state = AutoState.CoralPostStow; stateStartTime = Time.time;
                 }
                 else if (Time.time - stateStartTime > algaeTimeout)
@@ -1635,7 +1710,7 @@ public class AutoDriver : MonoBehaviour
 
     private void StartDriveToClosestFreeBranch()
     {
-        currentReefTarget = FindClosestFreeBranch();
+        currentReefTarget = IsL1Test ? l1Targets[l1Face-1] : FindClosestFreeBranch();
         if (scoringPreloadedCoral && currentReefTarget == null)
         {
             CoralLevel original = coralScoringLevel;
@@ -1922,8 +1997,19 @@ public class AutoDriver : MonoBehaviour
         );
 
 
+        // L1: retain the loaded Stow pose used during approach, including extension.
+        if (IsL1Test)
+        {
+            robot.LockReefIntakePose();
+            state = AutoState.PreparingScore;
+            stateStartTime = Time.time;
+            Debug.Log("L1 TEST: holding approach pose; no scoring extension");
+            return;
+        }
+
         // full extension
         ForceRobotState(
+            currentReefTarget.level == CoralLevel.L1 ? ReefscapeSetpoints.L1 :
             currentReefTarget.level == CoralLevel.L2 ? ReefscapeSetpoints.L2 :
             currentReefTarget.level == CoralLevel.L3 ? ReefscapeSetpoints.L3 :
             ReefscapeSetpoints.L4
@@ -1932,7 +2018,7 @@ public class AutoDriver : MonoBehaviour
 
         GamePieceState frontState =
             FindCoralState(
-                currentReefTarget.level == CoralLevel.L4 || robot.GetFacingReef()
+                currentReefTarget.level != CoralLevel.L1 && (currentReefTarget.level == CoralLevel.L4 || robot.GetFacingReef())
                     ? "coralFrontStowState" : "coralBackStowState"
             );
 
@@ -1973,6 +2059,7 @@ public class AutoDriver : MonoBehaviour
 
         if (!coralNode.HasPiece())
         {
+            if (IsL1Test) robot.CancelReefPoseLock();
             state =
                 AutoState.SearchingCoral;
 
@@ -2041,11 +2128,11 @@ public class AutoDriver : MonoBehaviour
             );
 
 
-        bool released =
-            coralNode
-            .ReleaseGamePieceWithForce(
-                releaseForce
-            );
+        bool released = IsL1Test
+            ? robot.TryAutonomousL1Outtake(l1ReleaseForce, releasedCoral,
+                currentReefTarget.scoringTrigger.transform.TransformPoint(currentReefTarget.scoringTrigger.center),
+                l1EjectionAngle)
+            : coralNode.ReleaseGamePieceWithForce(releaseForce);
 
 
         if (!released)
@@ -2059,6 +2146,7 @@ public class AutoDriver : MonoBehaviour
         }
 
 
+        if (IsL1Test) { l1Attempts++; l1FaceAttempts++; l1Pending = true; L1Log("release", currentReefTarget.node.name); }
         if(IsCompleteReef) { reefCoralAttempts++; ReefEvent("coral_release",reefTaskKey); }
         Debug.Log(
             $"AUTODRIVER: released Coral at " +
@@ -2144,6 +2232,7 @@ public class AutoDriver : MonoBehaviour
 
     private void FinishCoralCycle()
     {
+        if (IsL1Test) { FinishL1(); return; }
         bool success = lastCoralScoreSuccess;
         if(IsCompleteReef)
         {
@@ -2824,6 +2913,7 @@ public class AutoDriver : MonoBehaviour
 
     private void OnDisable()
     {
+        if (l1Active) { L1Log("stopped", "Autonomy disabled; pending release="+l1Pending); l1Active=false; }
         if (reefActive && !reefFinished) ReefEvent("stopped", "Autonomy disabled");
         if (robot != null) { robot.CancelReefPoseLock(); robot.AutonomousGroundAlgaeIntake = false; robot.AutonomousReefAlgaeIntake = false; robot.AutonomousLowAlgaeCarry = false; robot.AutonomousDelayAlgaeHome = false; }
         if (drivebase != null) drivebase.Stop();
